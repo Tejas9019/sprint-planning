@@ -10,6 +10,7 @@ import {
   User as UserIcon
 } from 'lucide-react';
 import { useBoardStore } from '../store/boardStore';
+import { aiApi } from '../lib/api';
 
 interface Message {
   id: string;
@@ -23,7 +24,7 @@ interface AIPanelProps {
 }
 
 export const AIPanel: React.FC<AIPanelProps> = ({ onClose }) => {
-  const { showToast } = useBoardStore();
+  const { showToast, tasks, users } = useBoardStore();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'm1',
@@ -50,12 +51,34 @@ export const AIPanel: React.FC<AIPanelProps> = ({ onClose }) => {
     "Optimize task assignment"
   ];
 
+  // Load chat history on mount
+  useEffect(() => {
+    const loadHistory = async () => {
+      try {
+        const history = await aiApi.getHistory();
+        if (history && history.length > 0) {
+          const mapped: Message[] = history.map((h: any) => ({
+            id: h.id,
+            sender: h.role, // 'user' or 'ai'
+            text: h.content,
+            timestamp: new Date(h.created_at)
+          }));
+          setMessages(mapped);
+          setShowSuggestions(false);
+        }
+      } catch (err) {
+        console.error("Failed to load AI chat history:", err);
+      }
+    };
+    loadHistory();
+  }, []);
+
   // Auto-scroll messages to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
 
-  const handleSendMessage = (text: string) => {
+  const handleSendMessage = async (text: string) => {
     if (!text.trim()) return;
     setShowSuggestions(false);
 
@@ -70,30 +93,39 @@ export const AIPanel: React.FC<AIPanelProps> = ({ onClose }) => {
     setInputVal('');
     setIsTyping(true);
 
-    // Simulated AI response
-    setTimeout(() => {
-      let aiText = "I'm analyzing your sprint data. ";
+    try {
+      const taskContext = JSON.stringify(tasks.map(t => {
+        const assigneeUser = users.find(u => u.id === t.assigneeId);
+        return {
+          title: t.title,
+          status: t.status,
+          priority: t.priority,
+          tag: t.tag,
+          date: t.date,
+          assignee: assigneeUser ? assigneeUser.name : 'Unassigned'
+        };
+      }));
       
-      const lower = text.toLowerCase();
-      if (lower.includes('sprint') || lower.includes('velocity')) {
-        aiText += "Based on the last 3 sprints, your team's velocity is stable at **42 story points**. I recommend moving **2 low-priority items** from 'Doing' back to 'To Do' to avoid scope creep.";
-      } else if (lower.includes('release') || lower.includes('draft')) {
-        aiText += "Here is a draft of the release notes for Version 2.0:\n\n- **Feature:** Drag-to-reorder cards within and across Kanban columns.\n- **Improvement:** Calendar and dashboard now reflect live task data.\n- **Fix:** Resolved focus handling in dialogs for keyboard users.";
-      } else if (lower.includes('optimize') || lower.includes('assign')) {
-        aiText += "To optimize task assignment, I analyzed your user skills. I suggest assigning **'Optimize Lead Scoring'** to the user with the most data science commits.";
-      } else {
-        aiText += `Regarding "${text}", I've parsed your active project board. I suggest structuring this goal into **3 subtasks** and updating the status cards in the To Do column. Let me know if you'd like me to auto-generate those subtasks!`;
-      }
-
+      const res = await aiApi.chat(text, taskContext);
+      
       const aiMsg: Message = {
         id: `msg_${Date.now() + 1}`,
         sender: 'ai',
-        text: aiText,
+        text: res.text,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, aiMsg]);
+    } catch (err: any) {
+      const errorMsg: Message = {
+        id: `msg_${Date.now() + 1}`,
+        sender: 'ai',
+        text: "Sorry, I am unable to process your request. Please ensure the AI service is running and configured.",
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMsg]);
+    } finally {
       setIsTyping(false);
-    }, 1500);
+    }
   };
 
   // Render a single line, handling **bold**, `code`, and leading "- " / "1." list markers.

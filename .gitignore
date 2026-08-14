@@ -1,0 +1,40 @@
+# Root .gitignore for Sprint Planning Project
+
+# IDEs/Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+.DS_Store
+
+# OS-specific files
+Thumbs.db
+db.db
+
+# Build/Dependency directories (just in case they are not caught by sub-directories)
+**/node_modules/
+**/dist/
+**/target/
+**/*.class
+**/*.log
+
+# Environments and Secrets
+.env
+.env.local
+.env.*.local
+!*.env.example
+
+# Python specific (for ai-service)
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.pytest_cache/
+**/.venv/
+**/venv/
+**/env/
+**/ENV/

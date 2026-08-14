@@ -6,6 +6,7 @@ import com.example.sprint_planning.rbac.model.Role;
 import com.example.sprint_planning.rbac.repository.RoleRepository;
 import com.example.sprint_planning.tenant.MembershipStatus;
 import com.example.sprint_planning.tenant.dto.InviteMemberRequest;
+import com.example.sprint_planning.tenant.dto.InviteResponse;
 import com.example.sprint_planning.tenant.dto.MembershipResponse;
 import com.example.sprint_planning.tenant.dto.UpdateMemberRoleRequest;
 import com.example.sprint_planning.tenant.mapper.TenantMapper;
@@ -113,5 +114,13 @@ public class TenantMembershipServiceImpl implements TenantMembershipService {
     private Role requireRole(String roleName) {
         return roleRepository.findByName(roleName.trim().toUpperCase())
                 .orElseThrow(() -> new ResourceNotFoundException("Unknown role: " + roleName));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public InviteResponse getInviteByToken(String token) {
+        TenantMembership membership = membershipRepository.findByInviteToken(token)
+                .orElseThrow(() -> new ResourceNotFoundException("Invite not found"));
+        return tenantMapper.toInviteResponse(membership);
     }
 }

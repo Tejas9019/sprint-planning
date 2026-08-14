@@ -117,17 +117,27 @@ async function request<T>(path: string, options: RequestOptions = {}, retryOn401
   return data as T;
 }
 
-/** Attempt a single token refresh. Updates token storage on success. */
+let refreshPromise: Promise<boolean> | null = null;
+
+/** Attempt a single token refresh. Updates token storage on success. Deduplicated to prevent concurrent calls. */
 async function tryRefresh(): Promise<boolean> {
   const refreshToken = tokenStorage.getRefreshToken();
   if (!refreshToken) return false;
-  try {
-    const tokens = await request<AuthTokens>('/auth/refresh', { method: 'POST', body: { refreshToken }, auth: false }, false);
-    applyTokens(tokens);
-    return true;
-  } catch {
-    return false;
+
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      try {
+        const tokens = await request<AuthTokens>('/auth/refresh', { method: 'POST', body: { refreshToken }, auth: false }, false);
+        applyTokens(tokens);
+        return true;
+      } catch {
+        return false;
+      } finally {
+        refreshPromise = null;
+      }
+    })();
   }
+  return refreshPromise;
 }
 
 /** Persist a token bundle into the shared storage. */
@@ -173,3 +183,84 @@ export const apiGet = <T>(path: string) => request<T>(path);
 export const apiPost = <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body });
 export const apiPut = <T>(path: string, body?: unknown) => request<T>(path, { method: 'PUT', body });
 export const apiDelete = <T>(path: string) => request<T>(path, { method: 'DELETE' });
+
+const AI_BASE_URL = (import.meta.env.VITE_AI_API_BASE_URL as string | undefined) ?? 'http://localhost:8000';
+
+export const aiApi = {
+  chat: (message: string, context?: string) => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const token = tokenStorage.getAccessToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    return fetch(`${AI_BASE_URL}/api/v1/ai/chat`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ message, context }),
+    }).then((r) => {
+      if (!r.ok) throw new Error('AI request failed');
+      return r.json();
+    });
+  },
+
+  getHistory: () => {
+    const headers: Record<string, string> = {};
+    const token = tokenStorage.getAccessToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    return fetch(`${AI_BASE_URL}/api/v1/ai/chat/history`, {
+      method: 'GET',
+      headers,
+    }).then((r) => {
+      if (!r.ok) throw new Error('AI history request failed');
+      return r.json();
+    });
+  },
+
+  writerChat: (message: string, sourceIds: string[]) => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const token = tokenStorage.getAccessToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    return fetch(`${AI_BASE_URL}/api/v1/ai/writer/chat`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ message, source_ids: sourceIds }),
+    }).then((r) => {
+      if (!r.ok) throw new Error('AI writer request failed');
+      return r.json();
+    });
+  },
+
+  uploadDocument: (file: File) => {
+    const headers: Record<string, string> = {};
+    const token = tokenStorage.getAccessToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    return fetch(`${AI_BASE_URL}/api/v1/ai/upload`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    }).then((r) => {
+      if (!r.ok) throw new Error('AI document upload failed');
+      return r.json();
+    });
+  },
+
+  deleteSource: (sourceId: string) => {
+    const headers: Record<string, string> = {};
+    const token = tokenStorage.getAccessToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    return fetch(`${AI_BASE_URL}/api/v1/ai/sources/${sourceId}`, {
+      method: 'DELETE',
+      headers,
+    }).then((r) => {
+      if (!r.ok) throw new Error('AI delete source failed');
+      return r.json();
+    });
+  },
+};
+

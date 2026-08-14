@@ -1,5 +1,6 @@
 package com.example.sprint_planning.tenant.mapper;
 
+import com.example.sprint_planning.tenant.dto.InviteResponse;
 import com.example.sprint_planning.tenant.dto.MembershipResponse;
 import com.example.sprint_planning.tenant.dto.TenantResponse;
 import com.example.sprint_planning.tenant.model.TenantMembership;
@@ -32,6 +33,18 @@ public class TenantMapper {
                 membership.getRole().getName(),
                 membership.getDepartment(),
                 membership.getStatus(),
+                membership.getInvitedAt());
+    }
+
+    public InviteResponse toInviteResponse(TenantMembership membership) {
+        return new InviteResponse(
+                membership.getId(),
+                membership.getTenant().getName(),
+                membership.getInvitedEmail(),
+                membership.getRole().getName(),
+                membership.getDepartment(),
+                membership.getStatus().name(),
+                membership.getInviteToken(),
                 membership.getInvitedAt());
     }
 }

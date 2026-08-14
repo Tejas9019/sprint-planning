@@ -31,6 +31,7 @@ interface ContactsState {
   inviteMember: (tenantId: string, input: InviteInput) => Promise<Member>;
   bulkInvite: (tenantId: string, rows: InviteInput[]) => Promise<{ added: number; skipped: number }>;
   acceptInvite: (token: string) => Promise<Member | null>;
+  fetchInviteDetails: (token: string) => Promise<any>;
   setStatus: (tenantId: string, id: string, status: MemberStatus) => Promise<void>;
   updateRole: (tenantId: string, id: string, role: string) => Promise<void>;
   removeMember: (tenantId: string, id: string) => Promise<void>;
@@ -109,9 +110,31 @@ export const useContactsStore = create<ContactsState>()(
         return { added, skipped };
       },
 
-      acceptInvite: async (_token) => {
-        // Backend handles token confirmation during signup / accept.
-        return null;
+      acceptInvite: async (token) => {
+        try {
+          const m = await apiPost<any>(`/tenants/accept-invite?token=${token}`);
+          const mapped: Member = {
+            id: m.id,
+            name: m.name || m.email.split('@')[0],
+            email: m.email,
+            role: m.role ? (m.role.charAt(0).toUpperCase() + m.role.slice(1).toLowerCase()) : 'Member',
+            department: m.department || 'Product',
+            status: m.status ? m.status.toLowerCase() as MemberStatus : 'invited',
+            inviteToken: m.inviteToken || '',
+            invitedAt: m.invitedAt || new Date().toISOString(),
+          };
+          return mapped;
+        } catch (err: any) {
+          throw new Error(err?.message ?? 'Failed to accept invite');
+        }
+      },
+
+      fetchInviteDetails: async (token) => {
+        try {
+          return await apiGet<any>(`/auth/invites/${token}`);
+        } catch (err: any) {
+          throw new Error(err?.message ?? 'Failed to fetch invite details');
+        }
       },
 
       setStatus: async (_tenantId, id, status) => {

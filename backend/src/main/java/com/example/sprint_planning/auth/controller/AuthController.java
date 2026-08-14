@@ -13,10 +13,13 @@ import com.example.sprint_planning.auth.dto.VerifyOtpRequest;
 import com.example.sprint_planning.auth.service.AuthService;
 import com.example.sprint_planning.common.api.ApiPaths;
 import com.example.sprint_planning.security.SecurityUtils;
+import com.example.sprint_planning.tenant.dto.InviteResponse;
+import com.example.sprint_planning.tenant.service.TenantMembershipService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -27,9 +30,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+    private final TenantMembershipService membershipService;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, TenantMembershipService membershipService) {
         this.authService = authService;
+        this.membershipService = membershipService;
+    }
+
+    @GetMapping("/invites/{token}")
+    public InviteResponse getInvite(@PathVariable String token) {
+        return membershipService.getInviteByToken(token);
     }
 
     @PostMapping("/signup")

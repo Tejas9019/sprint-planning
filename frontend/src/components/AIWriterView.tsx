@@ -20,6 +20,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { Modal } from './ui/Modal';
+import { aiApi } from '../lib/api';
 
 interface Source {
   id: string;
@@ -154,6 +155,50 @@ export const AIWriterView: React.FC = () => {
   const [newSourceName, setNewSourceName] = useState('');
   const [newSourceType, setNewSourceType] = useState<Source['type']>('pdf');
   const [newSourceContent, setNewSourceContent] = useState('');
+  const [uploadedSourceId, setUploadedSourceId] = useState<string | null>(null);
+
+  // File Upload State
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = async (file: File) => {
+    setIsUploadingFile(true);
+    triggerToast(`Parsing and uploading ${file.name}...`);
+    try {
+      const res = await aiApi.uploadDocument(file);
+      setNewSourceName(res.filename);
+      setNewSourceContent(res.content);
+      setUploadedSourceId(res.id); // Save backend generated UUID source id
+      
+      const ext = file.name.split('.').pop()?.toLowerCase();
+      if (ext === 'pdf') setNewSourceType('pdf');
+      else setNewSourceType('text');
+      
+      triggerToast(`Successfully parsed and loaded ${file.name}!`);
+    } catch (err: any) {
+      console.error(err);
+      triggerToast(`Failed to parse file: ${err.message || 'Unknown error'}`);
+    } finally {
+      setIsUploadingFile(false);
+    }
+  };
+
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      handleFileUpload(e.target.files[0]);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFileUpload(e.dataTransfer.files[0]);
+    }
+  };
 
   // UI Toast & Loading States
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -252,7 +297,7 @@ export const AIWriterView: React.FC = () => {
     const content = newSourceContent.trim() || `Mock content generated for ${newSourceName}`;
     
     const newSource: Source = {
-      id: `source_${Date.now()}`,
+      id: uploadedSourceId || `source_${Date.now()}`,
       name: newSourceName.endsWith(`.${newSourceType}`) ? newSourceName : `${newSourceName}.${newSourceType}`,
       type: newSourceType,
       size,
@@ -263,11 +308,18 @@ export const AIWriterView: React.FC = () => {
     setNotebooks(prev => prev.map(n => n.id === activeNotebookId ? { ...n, sources: [...n.sources, newSource] } : n));
     setNewSourceName('');
     setNewSourceContent('');
+    setUploadedSourceId(null); // Reset tracking state
     setIsAddingSource(false);
     triggerToast(`Added source: ${newSource.name}`);
   };
 
-  const handleDeleteSource = (sourceId: string, name: string) => {
+  const handleDeleteSource = async (sourceId: string, name: string) => {
+    try {
+      // Trigger deletion in ChromaDB vector store
+      await aiApi.deleteSource(sourceId);
+    } catch (err) {
+      console.error("Failed to delete source from vector store:", err);
+    }
     setNotebooks(prev => prev.map(n => n.id === activeNotebookId ? { ...n, sources: n.sources.filter(s => s.id !== sourceId) } : n));
     triggerToast(`Deleted source: ${name}`);
   };
@@ -286,14 +338,29 @@ export const AIWriterView: React.FC = () => {
     setIsSearchingWeb(true);
     triggerToast(`Searching the web for: "${webSearchInput}"...`);
 
-    setTimeout(() => {
+    setTimeout(async () => {
+      // For web search, we index it into the vector store first
+      const contentText = `Search result data from the web regarding: ${webSearchInput}. This resource contains high-relevance matches.`;
+      const filename = `${webSearchInput.slice(0, 20)}.web`;
+      let webSourceId = `web_${Date.now()}`;
+      
+      try {
+        // Create mock file structure to index in ChromaDB
+        const blob = new Blob([contentText], { type: 'text/plain' });
+        const fileObj = new File([blob], filename, { type: 'text/plain' });
+        const res = await aiApi.uploadDocument(fileObj);
+        webSourceId = res.id;
+      } catch (err) {
+        console.error("Failed to index web source:", err);
+      }
+
       const newSource: Source = {
-        id: `web_${Date.now()}`,
-        name: `${webSearchInput.slice(0, 20)}.web`,
+        id: webSourceId,
+        name: filename,
         type: 'web',
         size: '8 KB',
         selected: true,
-        content: `Search result data from the web regarding: ${webSearchInput}. This resource contains high-relevance matches.`
+        content: contentText
       };
 
       setNotebooks(prev => prev.map(n => n.id === activeNotebookId ? { ...n, sources: [...n.sources, newSource] } : n));
@@ -304,7 +371,7 @@ export const AIWriterView: React.FC = () => {
   };
 
   // Chat handlers
-  const handleSendMessage = (textToSend?: string) => {
+  const handleSendMessage = async (textToSend?: string) => {
     const text = textToSend || chatInput;
     if (text.trim() === '') return;
 
@@ -323,36 +390,40 @@ export const AIWriterView: React.FC = () => {
     setIsTyping(true);
     const selectedSources = activeNotebook.sources.filter(s => s.selected);
 
-    setTimeout(() => {
-      let aiText = '';
-      if (selectedSources.length === 0) {
-        aiText = "👋 Please select or upload at least one source in the left panel so I can analyze and answer questions based on your notebook's resources.";
-      } else {
-        const sourceNames = selectedSources.map(s => `"${s.name}"`).join(', ');
-        
-        // Analyze query keywords for mock-clever answers
-        const lowerText = text.toLowerCase();
-        if (lowerText.includes('acceptance') || lowerText.includes('criteria') || lowerText.includes('requirement')) {
-          aiText = `Based on the active source files (${sourceNames}), the acceptance criteria require tasks to support **priority** and **due dates**, the calendar to reflect live data, and all dialogs to be keyboard accessible.`;
-        } else if (lowerText.includes('sprint') || lowerText.includes('roadmap') || lowerText.includes('project')) {
-          aiText = `According to your checked sources (${sourceNames}), our current Q3 sprint roadmap lays out the launch of both the **AI Writer** notebook workspace and the **Data Insights** layout views. Interaction latencies for dialog frames must stay below \`200ms\`.`;
-        } else if (lowerText.includes('drag') || lowerText.includes('drop') || lowerText.includes('smooth')) {
-          aiText = `Analyzing the active documents, the card drag-and-drop animation is optimized using \`DragOverlay\` to isolate movement coordinate frames. We configure a pointer distance constraint of \`8px\` to distinguish clicks from drags.`;
-        } else {
-          aiText = `Analyzing details from the checked resources (${sourceNames}): The files define active parameters and layout coordinates. Let me know if you want me to draft a project brief, format a checklist, or compile key metrics from these documents.`;
-        }
-      }
-
+    if (selectedSources.length === 0) {
       const aiMsg: Message = {
         id: `msg_${Date.now() + 1}`,
         sender: 'ai',
-        text: aiText,
+        text: "👋 Please select or upload at least one source in the left panel so I can analyze and answer questions based on your notebook's resources.",
         timestamp: new Date().toISOString()
       };
-
       setNotebooks(prev => prev.map(n => n.id === activeNotebookId ? { ...n, messages: [...n.messages, aiMsg] } : n));
       setIsTyping(false);
-    }, 1200);
+      return;
+    }
+
+    try {
+      const sourceIds = selectedSources.map(s => s.id);
+      const res = await aiApi.writerChat(text, sourceIds);
+      
+      const aiMsg: Message = {
+        id: `msg_${Date.now() + 1}`,
+        sender: 'ai',
+        text: res.text,
+        timestamp: new Date().toISOString()
+      };
+      setNotebooks(prev => prev.map(n => n.id === activeNotebookId ? { ...n, messages: [...n.messages, aiMsg] } : n));
+    } catch (err: any) {
+      const errorMsg: Message = {
+        id: `msg_${Date.now() + 1}`,
+        sender: 'ai',
+        text: "Sorry, I am unable to process your request. Please ensure the AI service is running and configured.",
+        timestamp: new Date().toISOString()
+      };
+      setNotebooks(prev => prev.map(n => n.id === activeNotebookId ? { ...n, messages: [...n.messages, errorMsg] } : n));
+    } finally {
+      setIsTyping(false);
+    }
   };
 
   const handleSuggestionClick = (type: string) => {
@@ -814,6 +885,36 @@ export const AIWriterView: React.FC = () => {
             </div>
 
             <form onSubmit={handleAddSource} className="space-y-4">
+              {/* File Upload Drop Zone */}
+              <div 
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-border-primary hover:border-purple-500/50 rounded-2xl p-6 text-center cursor-pointer transition-all bg-bg-primary/40 hover:bg-bg-primary/70 flex flex-col items-center justify-center gap-2 group select-none"
+              >
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={onFileChange} 
+                  accept=".pdf,.docx,.doc,.txt,.md,.markdown,.csv"
+                  className="hidden" 
+                />
+                {isUploadingFile ? (
+                  <div className="flex flex-col items-center gap-1.5 animate-pulse">
+                    <div className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-[10px] font-semibold text-purple-600 dark:text-purple-400">Extracting content...</span>
+                  </div>
+                ) : (
+                  <>
+                    <HardDrive size={22} className="text-text-secondary group-hover:text-purple-500 transition-colors" />
+                    <div className="space-y-0.5">
+                      <span className="text-xs font-semibold text-text-heading block">Drag & drop document</span>
+                      <span className="text-[10px] text-text-secondary block">Supports PDF, DOCX, MD, CSV, TXT</span>
+                    </div>
+                  </>
+                )}
+              </div>
+
               {/* Type Selectors */}
               <div className="space-y-1.5 select-none">
                 <label className="text-[10px] uppercase font-bold text-text-secondary tracking-widest block">Resource Type</label>

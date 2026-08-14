@@ -1,6 +1,7 @@
 package com.example.sprint_planning.tenant.service;
 
 import com.example.sprint_planning.tenant.dto.InviteMemberRequest;
+import com.example.sprint_planning.tenant.dto.InviteResponse;
 import com.example.sprint_planning.tenant.dto.MembershipResponse;
 import com.example.sprint_planning.tenant.dto.UpdateMemberRoleRequest;
 
@@ -19,4 +20,6 @@ public interface TenantMembershipService {
 
     /** Links the invited membership to the accepting user and activates it. */
     MembershipResponse acceptInvite(String inviteToken, UUID userId);
+
+    InviteResponse getInviteByToken(String token);
 }
