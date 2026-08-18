@@ -11,21 +11,7 @@ interface TaskModalProps {
   defaultStatus?: Task['status'];
 }
 
-const TAG_OPTIONS = [
-  'Task Automate',
-  'Sales Forecast',
-  'Sentiment AI',
-  'Script AI',
-  'Lead Scoring',
-  'Heatmap AI',
-  'Social Boost',
-  'AI Writer',
-  'Data Insights',
-  'Predictive AI',
-  'Marketing AI',
-  'Chatbots',
-  'Finance AI'
-];
+import { useWorkspaceStore } from '../store/workspaceStore';
 
 const CURRENT_USER = 'Astra Admin';
 
@@ -40,7 +26,7 @@ const relativeTime = (iso: string) => {
 };
 
 export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, task, defaultStatus }) => {
-  const { users, addTask, updateTask, deleteTask, addComment } = useBoardStore();
+  const { users, tasks, addTask, updateTask, deleteTask, addComment, availableTags, createAvailableTag } = useBoardStore();
   // Read the live task from the store so newly-added comments render immediately.
   const liveTask = useBoardStore((s) => (task ? s.tasks.find((t) => t.id === task.id) : undefined));
 
@@ -51,8 +37,14 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, task, def
   const [assigneeId, setAssigneeId] = useState<string>('');
   const [date, setDate] = useState('');
   const [priority, setPriority] = useState<Priority>('medium');
+  const [epicId, setEpicId] = useState<string>('');
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [newTagInput, setNewTagInput] = useState('');
   const [newComment, setNewComment] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const workspaces = useWorkspaceStore((s) => s.workspaces);
+  const epics = tasks.filter(t => t.type === 'EPIC' && t.id !== task?.id);
 
   useEffect(() => {
     if (task) {
@@ -63,15 +55,20 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, task, def
       setAssigneeId(task.assigneeId || '');
       setDate(task.date || '');
       setPriority(task.priority || 'medium');
+      setEpicId(task.epicId || '');
+      setSelectedTags(task.tags || []);
     } else {
       setTitle('');
       setDescription('');
       setStatus(defaultStatus || 'todo');
-      setTag('Task Automate');
+      setTag(workspaces[0]?.workspaceKey || '');
       setAssigneeId('');
       setDate(todayStr());
       setPriority('medium');
+      setEpicId('');
+      setSelectedTags([]);
     }
+    setNewTagInput('');
     setNewComment('');
     setConfirmDelete(false);
   }, [task, defaultStatus, isOpen]);
@@ -88,6 +85,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, task, def
       assigneeId: assigneeId || null,
       date: date || undefined,
       priority,
+      epicId: epicId || null,
+      tags: selectedTags,
     };
 
     if (task) {
@@ -203,7 +202,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, task, def
               />
             </div>
 
-            {/* Tag / Project */}
+            {/* Workspace / Project Tag */}
             <div>
               <label htmlFor="task-tag" className="text-text-secondary font-medium block mb-1">Project Tag</label>
               <select
@@ -212,14 +211,14 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, task, def
                 onChange={(e) => setTag(e.target.value)}
                 className="w-full bg-bg-primary border border-border-primary focus:border-purple-500/50 rounded-lg px-3 py-2 text-text-primary outline-none transition-all cursor-pointer"
               >
-                {TAG_OPTIONS.map(opt => (
-                  <option key={opt} value={opt}>{opt}</option>
+                {workspaces.map(w => (
+                  <option key={w.id} value={w.workspaceKey}>{w.name}</option>
                 ))}
               </select>
             </div>
           </div>
 
-          {/* Assignee */}
+           {/* Assignee */}
           <div>
             <label htmlFor="task-assignee" className="text-text-secondary font-medium block mb-1">Assignee</label>
             <select
@@ -235,6 +234,93 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, task, def
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* Parent Epic */}
+          <div>
+            <label htmlFor="task-epic" className="text-text-secondary font-medium block mb-1">Parent (Epic)</label>
+            <select
+              id="task-epic"
+              value={epicId}
+              onChange={(e) => setEpicId(e.target.value)}
+              className="w-full bg-bg-primary border border-border-primary focus:border-purple-500/50 rounded-lg px-3 py-2 text-text-primary outline-none transition-all cursor-pointer"
+            >
+              <option value="">No Parent Epic</option>
+              {epics.map(e => (
+                <option key={e.id} value={e.id}>
+                  [{e.ticketKey}] {e.title}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Dynamic Tags */}
+          <div className="space-y-1.5 border-t border-border-primary/30 pt-3">
+            <label className="text-text-secondary font-medium block">Ticket Tags</label>
+            {availableTags.length === 0 ? (
+              <p className="text-[11px] text-text-secondary/60 italic">No tags created yet. Add one below!</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {availableTags.map(tagLabel => {
+                  const isSelected = selectedTags.includes(tagLabel);
+                  return (
+                    <button
+                      key={tagLabel}
+                      type="button"
+                      onClick={() => {
+                        setSelectedTags(prev =>
+                          prev.includes(tagLabel)
+                            ? prev.filter(t => t !== tagLabel)
+                            : [...prev, tagLabel]
+                        );
+                      }}
+                      className={`px-2 py-0.5 rounded text-[10px] font-semibold border transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-purple-600 border-purple-600 text-white dark:bg-purple-500 dark:border-purple-500 shadow-sm'
+                          : 'bg-bg-primary border-border-primary text-text-secondary hover:border-text-secondary/40'
+                      }`}
+                    >
+                      {tagLabel}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            
+            <div className="flex items-center gap-1.5 mt-2">
+              <input
+                type="text"
+                placeholder="Add custom tag..."
+                value={newTagInput}
+                onChange={(e) => setNewTagInput(e.target.value)}
+                onKeyDown={async (e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const val = newTagInput.trim();
+                    if (val) {
+                      await createAvailableTag(val);
+                      setSelectedTags(prev => prev.includes(val) ? prev : [...prev, val]);
+                      setNewTagInput('');
+                    }
+                  }
+                }}
+                className="flex-1 bg-bg-primary border border-border-primary focus:border-purple-500/50 rounded-lg px-2.5 py-1 text-text-primary text-[11px] outline-none transition-all"
+              />
+              <button
+                type="button"
+                onClick={async () => {
+                  const val = newTagInput.trim();
+                  if (val) {
+                    await createAvailableTag(val);
+                    setSelectedTags(prev => prev.includes(val) ? prev : [...prev, val]);
+                    setNewTagInput('');
+                  }
+                }}
+                className="px-2.5 py-1 rounded-lg bg-bg-primary border border-border-primary hover:border-text-secondary/40 text-text-primary text-[11px] font-semibold cursor-pointer transition-all"
+              >
+                + Add
+              </button>
+            </div>
           </div>
 
           {/* Comments (edit mode only) */}

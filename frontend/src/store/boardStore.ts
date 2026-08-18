@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { apiGet, apiPost, apiPut, apiDelete, type ApiUser } from '../lib/api';
+import { useWorkspaceStore } from './workspaceStore';
 
 export interface User {
   id: string;
@@ -30,6 +31,10 @@ export interface Task {
   comments?: Comment[];
   imageUrl?: string;
   date?: string; // YYYY-MM-DD format
+  type?: string;
+  epicId?: string | null;
+  ticketKey?: string;
+  tags?: string[];
 }
 
 export interface Toast {
@@ -46,10 +51,13 @@ interface BoardState {
   isLoadingUsers: boolean;
   theme: 'light' | 'dark';
   toast: Toast | null;
+  availableTags: string[];
 
   // Actions
   fetchTasks: () => Promise<void>;
   fetchUsers: () => Promise<void>;
+  fetchAvailableTags: () => Promise<void>;
+  createAvailableTag: (name: string) => Promise<void>;
   addTask: (task: Omit<Task, 'id' | 'commentsCount'>) => Promise<void>;
   updateTask: (id: string, updatedFields: Partial<Task>) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
@@ -65,8 +73,6 @@ interface BoardState {
 
 const COLUMN_IDS = ['todo', 'doing', 'done'];
 
-// Seed tasks have been replaced with live database tasks.
-
 export const useBoardStore = create<BoardState>()(
   persist(
     (set, get) => ({
@@ -77,6 +83,7 @@ export const useBoardStore = create<BoardState>()(
       isLoadingUsers: false,
       theme: 'light',
       toast: null,
+      availableTags: [],
       toggleTheme: () => set((state) => ({ theme: state.theme === 'light' ? 'dark' : 'light' })),
 
       showToast: (message, type = 'info') => {
@@ -88,10 +95,64 @@ export const useBoardStore = create<BoardState>()(
       },
       dismissToast: () => set({ toast: null }),
 
+      fetchAvailableTags: async () => {
+        try {
+          const tags = await apiGet<string[]>('/tags');
+          set({ availableTags: tags });
+        } catch {
+          // Ignore
+        }
+      },
+
+      createAvailableTag: async (name: string) => {
+        try {
+          const cleanName = name.trim();
+          if (!cleanName) return;
+          const createdTag = await apiPost<string>('/tags', { name: cleanName });
+          set((state) => {
+            if (state.availableTags.includes(createdTag)) return {};
+            return { availableTags: [...state.availableTags, createdTag] };
+          });
+        } catch (err: any) {
+          get().showToast(err?.message ?? 'Failed to create tag', 'error');
+        }
+      },
+
       fetchTasks: async () => {
         try {
-          const fetchedTasks = await apiGet<Task[]>('/tasks');
-          set({ tasks: fetchedTasks });
+          const workspaces = useWorkspaceStore.getState().workspaces;
+          if (workspaces.length === 0) {
+            set({ tasks: [] });
+            return;
+          }
+          
+          const filter = get().selectedTagFilter;
+          const targetWorkspaces = filter 
+            ? workspaces.filter(w => w.workspaceKey === filter)
+            : workspaces;
+            
+          const allTickets: Task[] = [];
+          for (const ws of targetWorkspaces) {
+            const tickets = await apiGet<any[]>(`/workspaces/${ws.id}/tickets`);
+            const mapped = tickets.map((t) => ({
+              id: t.id,
+              title: t.title,
+              description: t.description || '',
+              status: (t.status === 'IN_PROGRESS' ? 'doing' : (t.status === 'DONE' ? 'done' : 'todo')) as Task['status'],
+              tag: ws.workspaceKey,
+              assigneeId: t.assigneeId,
+              commentsCount: 0,
+              priority: t.priority?.toLowerCase() || 'medium',
+              type: t.type,
+              epicId: t.epicId,
+              ticketKey: t.ticketKey,
+              tags: t.tags || [],
+              date: t.dueDate || undefined
+            }));
+            allTickets.push(...mapped);
+          }
+          
+          set({ tasks: allTickets });
         } catch (err: any) {
           get().showToast(err?.message ?? 'Failed to load tasks', 'error');
         }
@@ -116,9 +177,43 @@ export const useBoardStore = create<BoardState>()(
 
       addTask: async (newTaskData) => {
         try {
-          const created = await apiPost<Task>('/tasks', newTaskData);
+          const workspaces = useWorkspaceStore.getState().workspaces;
+          const ws = workspaces.find(w => w.workspaceKey === newTaskData.tag) || workspaces[0];
+          if (!ws) {
+            get().showToast('No workspace found to add task', 'error');
+            return;
+          }
+          
+          const backendStatus = newTaskData.status === 'doing' ? 'IN_PROGRESS' : (newTaskData.status === 'done' ? 'DONE' : 'TODO');
+          const payload = {
+            title: newTaskData.title,
+            description: newTaskData.description,
+            status: backendStatus,
+            type: 'TASK',
+            priority: newTaskData.priority?.toUpperCase() || 'MEDIUM',
+            dueDate: newTaskData.date || null,
+            tags: newTaskData.tags || []
+          };
+          
+          const created = await apiPost<any>(`/workspaces/${ws.id}/tickets`, payload);
+          const mapped: Task = {
+            id: created.id,
+            title: created.title,
+            description: created.description || '',
+            status: (created.status === 'IN_PROGRESS' ? 'doing' : (created.status === 'DONE' ? 'done' : 'todo')) as Task['status'],
+            tag: ws.workspaceKey,
+            assigneeId: created.assigneeId,
+            commentsCount: 0,
+            priority: created.priority?.toLowerCase() || 'medium',
+            type: created.type,
+            epicId: created.epicId,
+            ticketKey: created.ticketKey,
+            tags: created.tags || [],
+            date: created.dueDate || undefined
+          };
+          
           set((state) => ({
-            tasks: [...state.tasks, created]
+            tasks: [...state.tasks, mapped]
           }));
           get().showToast('Task created successfully!', 'success');
         } catch (err: any) {
@@ -128,9 +223,47 @@ export const useBoardStore = create<BoardState>()(
 
       updateTask: async (id, updatedFields) => {
         try {
-          const updated = await apiPut<Task>(`/tasks/${id}`, updatedFields);
+          const task = get().tasks.find(t => t.id === id);
+          if (!task) return;
+          const workspaces = useWorkspaceStore.getState().workspaces;
+          const ws = workspaces.find(w => w.workspaceKey === task.tag);
+          if (!ws) return;
+          
+          const payload = {
+            title: updatedFields.title !== undefined ? updatedFields.title : task.title,
+            description: updatedFields.description !== undefined ? updatedFields.description : task.description,
+            status: updatedFields.status !== undefined 
+              ? (updatedFields.status === 'doing' ? 'IN_PROGRESS' : (updatedFields.status === 'done' ? 'DONE' : 'TODO'))
+              : (task.status === 'doing' ? 'IN_PROGRESS' : (task.status === 'done' ? 'DONE' : 'TODO')),
+            type: task.type || 'TASK',
+            priority: updatedFields.priority !== undefined 
+              ? updatedFields.priority.toUpperCase() 
+              : (task.priority?.toUpperCase() || 'MEDIUM'),
+            assigneeId: updatedFields.assigneeId !== undefined ? updatedFields.assigneeId : task.assigneeId,
+            dueDate: updatedFields.date !== undefined ? (updatedFields.date || null) : (task.date || null),
+            epicId: updatedFields.epicId !== undefined ? (updatedFields.epicId || null) : (task.epicId || null),
+            tags: updatedFields.tags !== undefined ? updatedFields.tags : (task.tags || [])
+          };
+
+          const updated = await apiPut<any>(`/workspaces/${ws.id}/tickets/${id}`, payload);
+          const mapped: Task = {
+            id: updated.id,
+            title: updated.title,
+            description: updated.description || '',
+            status: (updated.status === 'IN_PROGRESS' ? 'doing' : (updated.status === 'DONE' ? 'done' : 'todo')) as Task['status'],
+            tag: ws.workspaceKey,
+            assigneeId: updated.assigneeId,
+            commentsCount: 0,
+            priority: updated.priority?.toLowerCase() || 'medium',
+            type: updated.type,
+            epicId: updated.epicId,
+            ticketKey: updated.ticketKey,
+            tags: updated.tags || [],
+            date: updated.dueDate || undefined
+          };
+          
           set((state) => ({
-            tasks: state.tasks.map((task) => (task.id === id ? updated : task))
+            tasks: state.tasks.map((t) => (t.id === id ? mapped : t))
           }));
         } catch (err: any) {
           get().showToast(err?.message ?? 'Failed to update task', 'error');
@@ -139,7 +272,13 @@ export const useBoardStore = create<BoardState>()(
 
       deleteTask: async (id) => {
         try {
-          await apiDelete(`/tasks/${id}`);
+          const task = get().tasks.find(t => t.id === id);
+          if (!task) return;
+          const workspaces = useWorkspaceStore.getState().workspaces;
+          const ws = workspaces.find(w => w.workspaceKey === task.tag);
+          if (!ws) return;
+
+          await apiDelete(`/workspaces/${ws.id}/tickets/${id}`);
           set((state) => ({
             tasks: state.tasks.filter((task) => task.id !== id)
           }));
@@ -150,7 +289,6 @@ export const useBoardStore = create<BoardState>()(
       },
 
       moveTask: async (id, status, overId) => {
-        // Optimistically update locally
         set((state) => {
           const tasks = [...state.tasks];
           const fromIdx = tasks.findIndex((t) => t.id === id);
@@ -168,11 +306,25 @@ export const useBoardStore = create<BoardState>()(
           return { tasks };
         });
 
-        // Trigger API update
         try {
-          await apiPut(`/tasks/${id}`, { status });
+          const task = get().tasks.find(t => t.id === id);
+          if (!task) return;
+          const workspaces = useWorkspaceStore.getState().workspaces;
+          const ws = workspaces.find(w => w.workspaceKey === task.tag);
+          if (!ws) return;
+
+          const backendStatus = status === 'doing' ? 'IN_PROGRESS' : (status === 'done' ? 'DONE' : 'TODO');
+          await apiPut(`/workspaces/${ws.id}/tickets/${id}`, {
+            title: task.title,
+            description: task.description,
+            status: backendStatus,
+            type: task.type || 'TASK',
+            priority: task.priority?.toUpperCase() || 'MEDIUM',
+            assigneeId: task.assigneeId,
+            dueDate: task.date || null,
+            tags: task.tags || []
+          });
         } catch (err: any) {
-          // Re-sync if API call fails
           get().fetchTasks();
           get().showToast('Failed to move task', 'error');
         }
@@ -180,10 +332,15 @@ export const useBoardStore = create<BoardState>()(
 
       addComment: async (taskId, text, _author) => {
         try {
-          const newComment = await apiPost<Comment>(`/tasks/${taskId}/comments`, { text });
           set((state) => ({
             tasks: state.tasks.map((task) => {
               if (task.id !== taskId) return task;
+              const newComment: Comment = {
+                id: Math.random().toString(),
+                author: _author || 'You',
+                text,
+                createdAt: new Date().toISOString()
+              };
               const comments = [...(task.comments ?? []), newComment];
               return { ...task, comments, commentsCount: comments.length };
             })
@@ -199,7 +356,7 @@ export const useBoardStore = create<BoardState>()(
     {
       name: 'sprint-board-storage',
       version: 2,
-      partialize: (state) => ({ theme: state.theme }), // only persist theme
+      partialize: (state) => ({ theme: state.theme }),
     }
   )
 );

@@ -9,6 +9,7 @@ public final class ApiPaths {
     public static final String TENANTS = API_V1 + "/tenants";
     public static final String TASKS = API_V1 + "/tasks";
     public static final String NOTES = API_V1 + "/notes";
+    public static final String WORKSPACES = API_V1 + "/workspaces";
 
     private ApiPaths() {
     }

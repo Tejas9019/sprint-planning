@@ -30,10 +30,12 @@ import { useClickAway } from './hooks/useClickAway';
 import { AuthPage } from './components/auth';
 import { useAuthStore } from './store/authStore';
 import { ProfileSettingsView } from './components/ProfileSettingsView';
+import { WorkflowBuilder } from './components/WorkflowBuilder';
 import { useNotesStore } from './store/notesStore';
 import { useContactsStore } from './store/contactsStore';
+import { CreateWorkspaceModal } from './components/CreateWorkspaceModal';
+import { useWorkspaceStore } from './store/workspaceStore';
 import {
-  Menu,
   HelpCircle,
   Settings,
   Search,
@@ -45,7 +47,8 @@ import {
   LogOut,
   Sun,
   Moon,
-  MessageSquare
+  MessageSquare,
+  PanelLeftOpen
 } from 'lucide-react';
 
 const COLUMN_IDS = ['todo', 'doing', 'done'];
@@ -91,6 +94,7 @@ function App() {
   const [showAIPanel, setShowAIPanel] = useState(true);
   const [showQuickNote, setShowQuickNote] = useState(false);
   const [showMessages, setShowMessages] = useState(false);
+  const [isCreateWorkspaceOpen, setIsCreateWorkspaceOpen] = useState(false);
   const unreadMessages = useChatStore(totalUnread);
 
   const searchRef = useRef<HTMLInputElement>(null);
@@ -131,17 +135,28 @@ function App() {
     bootstrap();
   }, [bootstrap, ingestOAuthTokens]);
 
-  // Load board users, tasks, notes, and members once authenticated or tenant switches.
+  const workspaces = useWorkspaceStore((s) => s.workspaces);
+  const selectedTagFilter = useBoardStore((s) => s.selectedTagFilter);
+
+  // Load board users, notes, members and workspaces once authenticated or tenant switches.
   useEffect(() => {
     if (isAuthenticated) {
       fetchUsers();
-      fetchTasks();
       useNotesStore.getState().fetchNotes();
+      useWorkspaceStore.getState().fetchWorkspaces();
+      useBoardStore.getState().fetchAvailableTags();
       if (activeTenantId) {
         useContactsStore.getState().fetchMembers(activeTenantId);
       }
     }
-  }, [isAuthenticated, activeTenantId, fetchUsers, fetchTasks]);
+  }, [isAuthenticated, activeTenantId, fetchUsers]);
+
+  // Fetch tasks/tickets whenever workspaces or the selected workspace filter changes
+  useEffect(() => {
+    if (isAuthenticated && workspaces.length > 0) {
+      fetchTasks();
+    }
+  }, [isAuthenticated, workspaces, selectedTagFilter, fetchTasks]);
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -161,6 +176,16 @@ function App() {
     setSelectedTask(undefined);
     setDefaultStatus(status);
     setIsModalOpen(true);
+  };
+
+  const handleCreateWorkspaceClick = () => {
+    const roles = useAuthStore.getState().roles || [];
+    const isAdmin = roles.some(r => r.toUpperCase() === 'ADMIN' || r.toUpperCase() === 'ROLE_ADMIN');
+    if (isAdmin) {
+      setIsCreateWorkspaceOpen(true);
+    } else {
+      showToast('Only administrators can create workspaces.', 'error');
+    }
   };
 
   // Global keyboard shortcuts: "/" focuses search, "N" creates a task.
@@ -271,14 +296,15 @@ function App() {
 
         {/* Left Section: Menu, Logo, Date Navigation */}
         <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
-          <button
-            onClick={() => setSidebarCollapsed((c) => !c)}
-            aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            aria-pressed={!sidebarCollapsed}
-            className="p-2 hover:bg-bg-tertiary rounded-full text-text-primary transition-all cursor-pointer"
-          >
-            <Menu size={20} />
-          </button>
+          {sidebarCollapsed && (
+            <button
+              onClick={() => setSidebarCollapsed(false)}
+              aria-label="Expand sidebar"
+              className="p-2 hover:bg-bg-tertiary rounded-full text-text-primary transition-all cursor-pointer animate-fade-in"
+            >
+              <PanelLeftOpen size={20} />
+            </button>
+          )}
 
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow shadow-purple-500/20">
@@ -412,8 +438,9 @@ function App() {
           <Sidebar
             activeSection={activeSection}
             setActiveSection={setActiveSection}
-            onAddTask={() => handleOpenCreateModal('todo')}
+            onAddTask={handleCreateWorkspaceClick}
             collapsed={sidebarCollapsed}
+            onToggleCollapse={() => setSidebarCollapsed(true)}
           />
 
           {/* Center Kanban Board / Main Content */}
@@ -428,6 +455,8 @@ function App() {
                 onAddTask={handleOpenCreateModal}
                 onOpenBoard={() => setActiveSection('tasks')}
               />
+            ) : activeSection === 'workflows' ? (
+              <WorkflowBuilder onBack={() => setActiveSection('home')} />
             ) : activeSection === 'ai-writer' ? (
               <AIWriterView />
             ) : activeSection === 'data-insights' ? (
@@ -598,6 +627,11 @@ function App() {
 
       {/* Global toast outlet */}
       <ToastHost />
+
+      <CreateWorkspaceModal 
+        isOpen={isCreateWorkspaceOpen} 
+        onClose={() => setIsCreateWorkspaceOpen(false)} 
+      />
     </div>
   );
 }

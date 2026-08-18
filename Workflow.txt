@@ -1,0 +1,390 @@
+Generate ONLY the Workflow Builder/Editor screen with extremely high fidelity and realistic interactions.
+
+## Page Layout
+
+Full-screen application workspace.
+
+### Top Toolbar
+
+Include:
+
+* Back to Workflows
+* Workflow Name (editable)
+* Draft / Published status
+* Save
+* Test Workflow
+* Activate Workflow
+* Version History
+* Undo
+* Redo
+* Search Nodes
+* Zoom In
+* Zoom Out
+* Fit to Screen
+* Auto Arrange
+* Workflow Settings
+
+Toolbar should feel like a professional IDE.
+
+---
+
+## Left Sidebar — Node Library
+
+Collapsible panel with search.
+
+Search placeholder:
+"Search nodes, integrations, actions..."
+
+Categories:
+
+### Triggers
+
+* Webhook
+* Schedule
+* Cron
+* Manual Trigger
+* Email Trigger
+* Database Trigger
+* API Event
+
+### Logic
+
+* If/Else
+* Switch
+* Filter
+* Merge
+* Loop
+* Delay
+* Retry
+* Error Handler
+* Parallel Branch
+
+### AI
+
+* LLM
+* AI Agent
+* RAG Search
+* Embeddings
+* Classifier
+* Summarizer
+* Content Generator
+* Human Approval
+
+### Integrations
+
+* OpenAI
+* Anthropic
+* Slack
+* Discord
+* Salesforce
+* HubSpot
+* Gmail
+* Google Sheets
+* PostgreSQL
+* MySQL
+* MongoDB
+* AWS
+* GitHub
+
+### Developer
+
+* HTTP Request
+* GraphQL
+* REST API
+* JavaScript
+* Python
+* SQL
+* Custom Tool
+
+Nodes should appear as draggable cards with icons and short descriptions.
+
+---
+
+## Main Canvas
+
+Large infinite workflow canvas.
+
+Features:
+
+* Infinite scrolling canvas
+* Grid background
+* Zoom and pan
+* Node dragging
+* Multi-select
+* Minimap
+* Connection lines
+* Animated flow indicators
+* Grouping
+* Sticky notes
+* Auto layout
+
+Show a realistic workflow already built.
+
+Example:
+
+Webhook Trigger
+↓
+Validate Request
+↓
+AI Lead Classification
+↙       ↘
+High Value     Low Value
+↓             ↓
+AI Agent      CRM Update
+↓             ↓
+Human Review   Email Follow-up
+↘         ↙
+Merge
+↓
+Database Update
+↓
+Success
+
+Connections should look professional with smooth curved paths.
+
+---
+
+## Workflow Nodes
+
+Each node should contain:
+
+* Service icon
+* Node name
+* Status indicator
+* Execution count
+* Runtime duration
+* Input connector
+* Output connector
+
+States:
+
+* Idle
+* Running
+* Success
+* Warning
+* Failed
+
+Example node:
+
+OpenAI Classifier
+
+Status: Success
+Duration: 1.2s
+Records: 142
+
+Nodes should visually change based on execution status.
+
+---
+
+## Right Configuration Panel
+
+When a node is selected, open a detailed configuration drawer.
+
+Example:
+HTTP Request Node
+
+Tabs:
+
+### Parameters
+
+* Method
+* URL
+* Query Parameters
+
+### Authentication
+
+* API Key
+* Bearer Token
+* OAuth
+
+### Headers
+
+Key-value editor
+
+### Body
+
+JSON editor
+
+### Response
+
+Preview
+
+### Advanced
+
+Timeout
+Retry count
+Error handling
+
+Bottom actions:
+
+* Test Step
+* Save Changes
+* Duplicate Node
+* Delete Node
+
+---
+
+## Expression Builder
+
+Every field should support dynamic expressions.
+
+Example:
+
+{{trigger.customer.email}}
+
+Provide:
+
+* Variable picker
+* Previous node outputs
+* Workflow variables
+* Environment variables
+* Secrets
+
+Display a tree view:
+
+Webhook
+└ customer
+├ name
+├ email
+└ company
+
+Selecting a value inserts the expression automatically.
+
+---
+
+## AI Agent Node Configuration
+
+Create a sophisticated AI Agent editor.
+
+Fields:
+
+Agent Name
+
+System Instructions
+
+Model:
+
+* GPT
+* Claude
+* Gemini
+
+Temperature
+
+Max Tokens
+
+Tools:
+
+* Database
+* Search
+* HTTP API
+* Calculator
+* Custom Tools
+
+Memory:
+
+* Session Memory
+* Workflow Memory
+* Vector Memory
+
+Guardrails:
+
+* PII Detection
+* Prompt Injection Detection
+* Output Validation
+* Tool Permissions
+
+Show a live execution preview panel displaying:
+
+* Decision
+* Tool Selected
+* Tool Result
+* Final Output
+
+Represent reasoning as high-level execution events only.
+
+---
+
+## Workflow Debugging Panel
+
+Bottom dock similar to VS Code.
+
+Tabs:
+
+* Executions
+* Logs
+* Errors
+* Variables
+* Data Preview
+
+Execution Timeline:
+
+10:45:01 Trigger Fired
+10:45:02 Validation Complete
+10:45:03 AI Classification
+10:45:05 Database Updated
+10:45:06 Workflow Completed
+
+Selecting a step reveals:
+
+* Input Data
+* Output Data
+* Runtime
+* Logs
+* Errors
+
+---
+
+## Human Approval Node
+
+Visual approval workflow.
+
+AI Agent
+↓
+Approval
+↓
+Continue
+
+Configuration:
+
+* Approval Message
+* Assignee
+* Timeout
+* Escalation Rule
+* Approve
+* Reject
+
+Display pending approvals count.
+
+---
+
+## Workflow Collaboration
+
+Show:
+
+* Active collaborators
+* User cursors
+* Comments
+* Activity timeline
+* Change history
+
+Similar to Figma collaborative editing.
+
+---
+
+## UX Requirements
+
+The editor should immediately communicate:
+
+* Where the workflow starts
+* How data moves
+* Which branch is active
+* Which node failed
+* What data is being passed
+* What AI decisions are being made
+* Whether the workflow is live
+
+Focus on creating the most detailed and realistic workflow editor possible.
+
+Avoid marketing content, dashboards, analytics pages, landing pages, onboarding screens, or generic admin layouts.
+
+The entire screen should feel like a professional workflow automation IDE used by enterprise AI teams.
