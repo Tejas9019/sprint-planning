@@ -30,17 +30,19 @@ public class TagController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public String createTag(@RequestBody TagRequest request) {
+    public TagCreateResponse createTag(@RequestBody TagRequest request) {
         UUID tenantId = tenantContext.requireTenantId();
         String cleanName = request.name().trim();
         if (cleanName.isEmpty()) {
             throw new IllegalArgumentException("Tag name cannot be empty");
         }
         
-        return tagRepository.findByTenantIdAndName(tenantId, cleanName)
+        String savedName = tagRepository.findByTenantIdAndName(tenantId, cleanName)
                 .orElseGet(() -> tagRepository.save(new Tag(tenantId, cleanName)))
                 .getName();
+        return new TagCreateResponse(savedName);
     }
 
     public record TagRequest(String name) {}
+    public record TagCreateResponse(String name) {}
 }

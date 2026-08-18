@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageSquare, CalendarClock } from 'lucide-react';
+import { MessageSquare, CalendarClock, Bookmark, Bug, CheckSquare, Zap, ChevronUp, ChevronDown, Minus } from 'lucide-react';
 import { useBoardStore, type Task, type Priority } from '../store/boardStore';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -10,8 +10,6 @@ interface TaskCardProps {
   onEdit?: (task: Task) => void;
   isOverlay?: boolean;
 }
-
-
 
 const PRIORITY_META: Record<Priority, { label: string; dot: string; text: string }> = {
   high: { label: 'High priority', dot: 'bg-rose-500', text: 'text-rose-600 dark:text-rose-400' },
@@ -38,6 +36,65 @@ const getUserColor = (userId: string) => {
 const formatDue = (dateStr: string) =>
   parseDateStr(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
+export const getTagColorClass = (tag: string) => {
+  const colors = [
+    // Orange
+    { bg: 'bg-orange-50 dark:bg-orange-950/20', border: 'border-orange-200 dark:border-orange-900/30', text: 'text-orange-700 dark:text-orange-300' },
+    // Vibrant Green
+    { bg: 'bg-emerald-50 dark:bg-emerald-950/20', border: 'border-emerald-200 dark:border-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300' },
+    // Violet
+    { bg: 'bg-purple-50 dark:bg-purple-950/20', border: 'border-purple-200 dark:border-purple-900/30', text: 'text-purple-700 dark:text-purple-300' },
+    // Blue/Indigo
+    { bg: 'bg-blue-50 dark:bg-blue-950/20', border: 'border-blue-200 dark:border-blue-900/30', text: 'text-blue-700 dark:text-blue-300' },
+    // Pink/Rose
+    { bg: 'bg-rose-50 dark:bg-rose-950/20', border: 'border-rose-200 dark:border-rose-900/30', text: 'text-rose-700 dark:text-rose-300' },
+    // Teal
+    { bg: 'bg-teal-50 dark:bg-teal-950/20', border: 'border-teal-200 dark:border-teal-900/30', text: 'text-teal-700 dark:text-teal-300' },
+    // Amber/Yellow
+    { bg: 'bg-amber-50 dark:bg-amber-950/20', border: 'border-amber-200 dark:border-amber-900/30', text: 'text-amber-700 dark:text-amber-300' },
+    // Indigo
+    { bg: 'bg-indigo-50 dark:bg-indigo-950/20', border: 'border-indigo-200 dark:border-indigo-900/30', text: 'text-indigo-700 dark:text-indigo-300' },
+    // Cyan
+    { bg: 'bg-cyan-50 dark:bg-cyan-950/20', border: 'border-cyan-200 dark:border-cyan-900/30', text: 'text-cyan-700 dark:text-cyan-300' },
+    // Lime
+    { bg: 'bg-lime-50 dark:bg-lime-950/20', border: 'border-lime-200 dark:border-lime-900/30', text: 'text-lime-700 dark:text-lime-300' }
+  ];
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) {
+    hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % colors.length;
+  return colors[index];
+};
+
+const renderTypeIcon = (type?: string) => {
+  const t = type?.toUpperCase() || 'TASK';
+  switch (t) {
+    case 'BUG':
+      return <Bug size={13} className="text-rose-500 fill-rose-500/10" />;
+    case 'EPIC':
+      return <Zap size={13} className="text-purple-600 fill-purple-600" />;
+    case 'STORY':
+      return <Bookmark size={13} className="text-emerald-500 fill-emerald-500" />;
+    case 'TASK':
+    default:
+      return <CheckSquare size={13} className="text-blue-500 fill-blue-500" />;
+  }
+};
+
+const renderPriorityIcon = (priority?: string) => {
+  const p = priority?.toLowerCase() || 'medium';
+  switch (p) {
+    case 'high':
+      return <span title="High Priority"><ChevronUp size={14} className="text-rose-500 font-bold" /></span>;
+    case 'low':
+      return <span title="Low Priority"><ChevronDown size={14} className="text-emerald-500 font-bold" /></span>;
+    case 'medium':
+    default:
+      return <span title="Medium Priority"><Minus size={14} className="text-amber-500 font-bold" /></span>;
+  }
+};
+
 export const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, isOverlay = false }) => {
   const { users, tasks } = useBoardStore();
   const assignee = users.find(u => u.id === task.assigneeId);
@@ -61,7 +118,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, isOverlay = fa
       <div
         ref={setNodeRef}
         style={sortableStyle}
-        className="bg-bg-secondary/10 border-2 border-dashed border-purple-500/20 dark:border-purple-500/30 rounded-xl p-3.5 space-y-3 opacity-25 shadow-none pointer-events-none select-none"
+        className="bg-bg-secondary/10 border border-dashed border-purple-500/20 dark:border-purple-500/30 rounded-xl p-3.5 space-y-3 opacity-25 shadow-none pointer-events-none select-none"
       >
         <div className="invisible">
           <div className="flex items-center justify-between">
@@ -82,9 +139,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, isOverlay = fa
     );
   }
 
-  const priority = task.priority ? PRIORITY_META[task.priority] : null;
   const overdue = isOverdue(task.date, task.status);
-
   const cardTags = task.tags || [];
 
   // Get Initials for assignee
@@ -118,27 +173,27 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, isOverlay = fa
           onEdit(task);
         }
       }}
-      className={`group bg-bg-secondary border border-border-primary rounded-xl p-4 space-y-3.5 select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/50 ${
+      className={`group bg-bg-secondary border border-border-primary/50 rounded-lg p-3.5 space-y-3 select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/50 ${
         isOverlay
           ? 'transition-none cursor-grabbing rotate-[2.5deg] scale-[1.04] border-purple-500/40 shadow-2xl shadow-purple-500/20 dark:shadow-purple-500/40 backdrop-blur-md bg-bg-secondary/90 ring-1 ring-purple-500/10'
-          : 'transition-shadow duration-200 cursor-grab active:cursor-grabbing hover:border-text-secondary/30 shadow-sm hover:shadow-md'
+          : 'transition-all duration-150 cursor-grab active:cursor-grabbing hover:border-purple-500/30 hover:bg-bg-tertiary/10 shadow-sm'
       }`}
     >
       {/* Title & Epic Header */}
       <div className="space-y-1">
         {epic && (
-          <div className="flex items-center gap-1 bg-bg-primary/70 border border-border-primary/50 px-2 py-0.5 rounded text-[10px] font-semibold text-purple-600 dark:text-purple-400 w-fit">
+          <div className="flex items-center gap-1 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded text-[9px] font-bold text-purple-600 dark:text-purple-400 w-fit">
             <span>Parent:</span>
-            <span className="truncate max-w-[120px] font-bold" title={`${epic.ticketKey} ${epic.title}`}>
+            <span className="truncate max-w-[120px]" title={`${epic.ticketKey} ${epic.title}`}>
               {epic.title}
             </span>
           </div>
         )}
-        <h4 className="text-sm font-medium text-text-heading group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors leading-normal pt-0.5">
+        <h4 className="text-xs font-semibold text-text-heading group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors leading-snug">
           {task.title}
         </h4>
         {task.description && (
-          <p className="text-xs text-text-secondary line-clamp-2 leading-relaxed">
+          <p className="text-[11px] text-text-secondary/80 line-clamp-2 leading-relaxed">
             {task.description}
           </p>
         )}
@@ -146,15 +201,18 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, isOverlay = fa
 
       {/* Tags Chips */}
       {cardTags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {cardTags.map(tagLabel => (
-            <span
-              key={tagLabel}
-              className="bg-bg-primary border border-border-primary/70 text-text-secondary text-[10px] px-2 py-0.5 rounded font-medium tracking-wide uppercase"
-            >
-              {tagLabel}
-            </span>
-          ))}
+        <div className="flex flex-wrap gap-1">
+          {cardTags.map(tagLabel => {
+            const colors = getTagColorClass(tagLabel);
+            return (
+              <span
+                key={tagLabel}
+                className={`border ${colors.bg} ${colors.border} ${colors.text} text-[9px] px-1.5 py-0.5 rounded font-bold tracking-wide uppercase`}
+              >
+                {tagLabel}
+              </span>
+            );
+          })}
         </div>
       )}
 
@@ -171,32 +229,41 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, isOverlay = fa
         </div>
       )}
 
-      {/* Card Footer: due date, comments, ticket key, priority & assignee */}
-      <div className="flex items-center justify-between pt-2 text-text-secondary border-t border-border-primary/30">
-        <div className="flex items-center gap-2.5">
+      {/* Card Footer: Type icon, ticket key, priority, due date, comments, assignee */}
+      <div className="flex items-center justify-between pt-1 text-text-secondary">
+        <div className="flex items-center gap-2">
+          {/* Issue Type Icon */}
+          <span className="flex-shrink-0">
+            {renderTypeIcon(task.type)}
+          </span>
+
+          {/* Ticket Key */}
           {task.ticketKey && (
-            <span className="font-semibold text-text-primary dark:text-text-primary/90 text-xs hover:underline">
+            <span className="font-bold text-text-secondary/90 text-[11px] tracking-tight">
               {task.ticketKey}
             </span>
           )}
-          {priority && (
-            <span className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider ${priority.text}`} title={priority.label}>
-              <span className={`w-1.5 h-1.5 rounded-full ${priority.dot}`} aria-hidden="true" />
-              {task.priority}
-            </span>
-          )}
+
+          {/* Priority Icon */}
+          <span className="flex-shrink-0 ml-0.5">
+            {renderPriorityIcon(task.priority)}
+          </span>
+
+          {/* Due date */}
           {task.date && (
             <span
-              className={`flex items-center gap-1 text-[10px] ${overdue ? 'text-rose-600 dark:text-rose-400 font-semibold' : ''}`}
+              className={`flex items-center gap-0.5 text-[10px] ml-0.5 ${overdue ? 'text-rose-600 dark:text-rose-400 font-semibold' : ''}`}
               title={overdue ? 'Overdue' : 'Due date'}
             >
-              <CalendarClock size={12} />
+              <CalendarClock size={11} />
               <span>{formatDue(task.date)}</span>
             </span>
           )}
+
+          {/* Comments count */}
           {task.commentsCount > 0 && (
-            <span className="flex items-center gap-1 hover:text-text-primary transition-colors text-[10px]">
-              <MessageSquare size={12} />
+            <span className="flex items-center gap-0.5 text-[10px] ml-0.5">
+              <MessageSquare size={11} />
               <span>{task.commentsCount}</span>
             </span>
           )}
@@ -207,14 +274,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, isOverlay = fa
           {assignee ? (
             <div
               title={assignee.name}
-              className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border border-bg-secondary shadow-inner ${getUserColor(assignee.id)}`}
+              className={`w-5.5 h-5.5 rounded-full flex items-center justify-center text-[9px] font-bold border border-bg-secondary shadow-inner ${getUserColor(assignee.id)}`}
             >
               {getInitials(assignee.name)}
             </div>
           ) : (
             <div
               title="Unassigned"
-              className="w-5.5 h-5.5 rounded-full bg-bg-primary border border-border-primary flex items-center justify-center text-[9px] text-text-secondary/60"
+              className="w-5 h-5 rounded-full bg-bg-primary border border-border-primary flex items-center justify-center text-[9px] text-text-secondary/60"
             >
               --
             </div>

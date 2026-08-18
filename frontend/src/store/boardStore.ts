@@ -108,7 +108,8 @@ export const useBoardStore = create<BoardState>()(
         try {
           const cleanName = name.trim();
           if (!cleanName) return;
-          const createdTag = await apiPost<string>('/tags', { name: cleanName });
+          const response = await apiPost<{ name: string }>('/tags', { name: cleanName });
+          const createdTag = response.name;
           set((state) => {
             if (state.availableTags.includes(createdTag)) return {};
             return { availableTags: [...state.availableTags, createdTag] };

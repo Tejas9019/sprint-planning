@@ -3,6 +3,7 @@ import { X, Send, Trash2, AlertTriangle } from 'lucide-react';
 import { useBoardStore, type Task, type Priority } from '../store/boardStore';
 import { Modal } from './ui/Modal';
 import { todayStr } from '../utils/date';
+import { getTagColorClass } from './TaskCard';
 
 interface TaskModalProps {
   isOpen: boolean;
@@ -255,36 +256,67 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, task, def
           </div>
 
           {/* Dynamic Tags */}
-          <div className="space-y-1.5 border-t border-border-primary/30 pt-3">
+          <div className="space-y-2 border-t border-border-primary/30 pt-3">
             <label className="text-text-secondary font-medium block">Ticket Tags</label>
-            {availableTags.length === 0 ? (
-              <p className="text-[11px] text-text-secondary/60 italic">No tags created yet. Add one below!</p>
-            ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {availableTags.map(tagLabel => {
-                  const isSelected = selectedTags.includes(tagLabel);
+            
+            {/* Active Selected Tags */}
+            {selectedTags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {selectedTags.map(tagLabel => {
+                  const colors = getTagColorClass(tagLabel);
                   return (
-                    <button
+                    <span
                       key={tagLabel}
-                      type="button"
-                      onClick={() => {
-                        setSelectedTags(prev =>
-                          prev.includes(tagLabel)
-                            ? prev.filter(t => t !== tagLabel)
-                            : [...prev, tagLabel]
-                        );
-                      }}
-                      className={`px-2 py-0.5 rounded text-[10px] font-semibold border transition-all cursor-pointer ${
-                        isSelected
-                          ? 'bg-purple-600 border-purple-600 text-white dark:bg-purple-500 dark:border-purple-500 shadow-sm'
-                          : 'bg-bg-primary border-border-primary text-text-secondary hover:border-text-secondary/40'
-                      }`}
+                      className={`flex items-center gap-1 border ${colors.bg} ${colors.border} ${colors.text} rounded px-2 py-0.5 text-[10px] font-bold shadow-sm`}
                     >
-                      {tagLabel}
-                    </button>
+                      <span>{tagLabel}</span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedTags(prev => prev.filter(t => t !== tagLabel))}
+                        className="hover:opacity-75 transition-opacity cursor-pointer"
+                        aria-label={`Remove tag ${tagLabel}`}
+                      >
+                        <X size={10} />
+                      </button>
+                    </span>
                   );
                 })}
               </div>
+            )}
+
+            {/* Suggestions / Available Tags */}
+            {availableTags.length > 0 ? (
+              <div className="space-y-1">
+                <span className="text-[10px] text-text-secondary/70 block">Select from available tags:</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {availableTags.map(tagLabel => {
+                    const isSelected = selectedTags.includes(tagLabel);
+                    const colors = getTagColorClass(tagLabel);
+                    return (
+                      <button
+                        key={tagLabel}
+                        type="button"
+                        onClick={() => {
+                          setSelectedTags(prev =>
+                            prev.includes(tagLabel)
+                              ? prev.filter(t => t !== tagLabel)
+                              : [...prev, tagLabel]
+                          );
+                        }}
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-all cursor-pointer ${
+                          isSelected
+                            ? `${colors.bg} ${colors.border} ${colors.text} ring-1 ring-inset ${colors.border}`
+                            : 'bg-bg-primary border-border-primary text-text-secondary hover:border-text-secondary/40'
+                        }`}
+                      >
+                        {tagLabel} {isSelected && '✓'}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <p className="text-[11px] text-text-secondary/60 italic">No tags created yet. Add one below!</p>
             )}
             
             <div className="flex items-center gap-1.5 mt-2">
