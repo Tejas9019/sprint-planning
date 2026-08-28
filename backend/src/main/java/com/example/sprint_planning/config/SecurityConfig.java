@@ -64,6 +64,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(ApiPaths.AUTH + "/**").permitAll()
+                        .requestMatchers(ApiPaths.FILES + "/download/**").permitAll()
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                         .requestMatchers("/actuator/health", "/error").permitAll()
                         .anyRequest().authenticated());

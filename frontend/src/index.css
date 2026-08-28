@@ -147,3 +147,40 @@ html, body {
 .font-mono {
   font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
 }
+
+/* Contenteditor styles for lists, links, and images */
+[contenteditable] ul, .prose ul, .task-description ul {
+  list-style-type: disc !important;
+  padding-left: 20px !important;
+  margin-top: 4px !important;
+  margin-bottom: 4px !important;
+}
+
+[contenteditable] ol, .prose ol, .task-description ol {
+  list-style-type: decimal !important;
+  padding-left: 20px !important;
+  margin-top: 4px !important;
+  margin-bottom: 4px !important;
+}
+
+[contenteditable] a, .prose a, .task-description a {
+  color: #1a73e8;
+  text-decoration: underline;
+}
+
+[contenteditable] img, .prose img, .task-description img {
+  max-width: 100%;
+  max-height: 350px;
+  border-radius: 4px;
+  display: block;
+  margin: 8px 0;
+}
+
+[contenteditable][data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-secondary);
+  opacity: 0.7;
+  cursor: text;
+}
+
+

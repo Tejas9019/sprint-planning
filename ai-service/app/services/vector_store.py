@@ -2,7 +2,7 @@ import os
 import logging
 from typing import List
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_google_genai import GoogleGenAIEmbeddings
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 import chromadb
 from app.core.config import settings
 
@@ -18,7 +18,7 @@ class VectorStoreService:
         self.chroma_client = chromadb.PersistentClient(path=self.persist_directory)
         
         # Initialize Google GenAI Embeddings
-        self.embeddings = GoogleGenAIEmbeddings(
+        self.embeddings = GoogleGenerativeAIEmbeddings(
             model="models/gemini-embedding-001",
             google_api_key=settings.GEMINI_API_KEY
         )

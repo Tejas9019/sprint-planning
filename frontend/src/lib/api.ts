@@ -147,6 +147,31 @@ export function applyTokens(tokens: AuthTokens) {
   tokenStorage.setActiveTenantId(tokens.activeTenantId);
 }
 
+export async function apiUploadFile(file: File): Promise<{ url: string; fileName: string; originalName: string }> {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  const headers: Record<string, string> = {};
+  const token = tokenStorage.getAccessToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const tenantId = tokenStorage.getActiveTenantId();
+  if (tenantId) headers['X-Tenant-Id'] = tenantId;
+
+  const response = await fetch(`${API}/files/upload`, {
+    method: 'POST',
+    headers,
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    const message = data?.message ?? response.statusText;
+    throw new Error(message || 'File upload failed');
+  }
+
+  return response.json();
+}
+
 function forceSignOut() {
   tokenStorage.clear();
   onUnauthorized?.();

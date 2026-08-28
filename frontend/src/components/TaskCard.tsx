@@ -194,7 +194,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, isOverlay = fa
         </h4>
         {task.description && (
           <p className="text-[11px] text-text-secondary/80 line-clamp-2 leading-relaxed">
-            {task.description}
+            {task.description.replace(/<[^>]*>/g, '')}
           </p>
         )}
       </div>

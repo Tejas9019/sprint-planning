@@ -190,7 +190,7 @@ export const useBoardStore = create<BoardState>()(
             title: newTaskData.title,
             description: newTaskData.description,
             status: backendStatus,
-            type: 'TASK',
+            type: newTaskData.type || 'TASK',
             priority: newTaskData.priority?.toUpperCase() || 'MEDIUM',
             dueDate: newTaskData.date || null,
             tags: newTaskData.tags || []
@@ -221,7 +221,7 @@ export const useBoardStore = create<BoardState>()(
           get().showToast(err?.message ?? 'Failed to create task', 'error');
         }
       },
-
+ 
       updateTask: async (id, updatedFields) => {
         try {
           const task = get().tasks.find(t => t.id === id);
@@ -236,7 +236,7 @@ export const useBoardStore = create<BoardState>()(
             status: updatedFields.status !== undefined 
               ? (updatedFields.status === 'doing' ? 'IN_PROGRESS' : (updatedFields.status === 'done' ? 'DONE' : 'TODO'))
               : (task.status === 'doing' ? 'IN_PROGRESS' : (task.status === 'done' ? 'DONE' : 'TODO')),
-            type: task.type || 'TASK',
+            type: updatedFields.type !== undefined ? updatedFields.type : (task.type || 'TASK'),
             priority: updatedFields.priority !== undefined 
               ? updatedFields.priority.toUpperCase() 
               : (task.priority?.toUpperCase() || 'MEDIUM'),
