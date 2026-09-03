@@ -1,6 +1,7 @@
 import React from 'react';
 import type { Node } from '@xyflow/react';
 import type { CustomNodeData } from './CustomNode';
+import { useBoardStore } from '../../store/boardStore';
 import {
   Cpu,
   Copy,
@@ -12,7 +13,12 @@ import {
   Activity,
   CheckCircle,
   Layers,
-  Terminal
+  Terminal,
+  Code,
+  Server,
+  Boxes,
+  Shield,
+  CreditCard
 } from 'lucide-react';
 
 interface NodeSettingsPanelProps {
@@ -340,29 +346,68 @@ export const NodeSettingsPanel: React.FC<NodeSettingsPanelProps> = ({
                 <input type="checkbox" defaultChecked className="rounded text-purple-600 focus:ring-purple-500 w-3.5 h-3.5" />
                 <span>Post run details to Slack (#ops-alerts)</span>
               </label>
-              <label className="flex items-center gap-2 text-[11px] text-text-secondary cursor-pointer">
-                <input type="checkbox" className="rounded text-purple-600 focus:ring-purple-500 w-3.5 h-3.5" />
-                <span>Post run details to Discord Webhook</span>
-              </label>
             </div>
           </div>
         )}
-
-        {/* AI Agent Configuration */}
-        {selectedNode.data.category === 'ai' && selectedNode.data.label.includes('Agent') && (
+        {/* AI Agent & Multi-Agent Framework Configuration */}
+        {selectedNode.data.category === 'ai' && (
           <div className="space-y-4 border-t border-border-primary/50 pt-4">
             <h3 className="text-xs font-bold text-purple-600 dark:text-purple-400 flex items-center gap-1.5">
               <Sparkles size={13} />
-              <span>AI Agent Settings</span>
+              <span>Multi-Agent Framework & Architecture Settings</span>
             </h3>
 
+            {/* Agent / Framework Type */}
             <div>
-              <label className="block text-[10px] font-semibold text-text-secondary mb-1">Agent Name</label>
+              <label className="block text-[10px] font-semibold text-text-secondary mb-1">Multi-Agent Framework</label>
+              <select
+                value={selectedNode.data.config?.framework || 'CrewAI'}
+                onChange={(e) => updateSelectedNodeConfig('framework', e.target.value)}
+                className="w-full bg-bg-tertiary border border-border-primary rounded-lg px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-purple-500 font-medium"
+              >
+                <option value="CrewAI">CrewAI (Role Delegation: PM + Architect + Dev)</option>
+                <option value="LangGraph">LangGraph (Stateful Multi-Agent DAG Graph)</option>
+                <option value="AutoGen">AutoGen (Conversational Agent Team)</option>
+                <option value="LangChain">LangChain (Standard Function Call Tool Agent)</option>
+              </select>
+            </div>
+
+            {/* Microservices vs Monolithic Selector */}
+            <div>
+              <label className="block text-[10px] font-semibold text-text-secondary mb-1">Target Product System Architecture</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => updateSelectedNodeConfig('architectureType', 'MICROSERVICES')}
+                  className={`py-1.5 px-2 rounded-lg border text-[10.5px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-all ${(selectedNode.data.config?.architectureType || 'MICROSERVICES') === 'MICROSERVICES'
+                      ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
+                      : 'bg-bg-tertiary text-text-secondary border-border-primary hover:bg-neutral-200 dark:hover:bg-neutral-800'
+                    }`}
+                >
+                  <Boxes size={12} />
+                  <span>Microservices</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updateSelectedNodeConfig('architectureType', 'MONOLITHIC')}
+                  className={`py-1.5 px-2 rounded-lg border text-[10.5px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-all ${selectedNode.data.config?.architectureType === 'MONOLITHIC'
+                      ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
+                      : 'bg-bg-tertiary text-text-secondary border-border-primary hover:bg-neutral-200 dark:hover:bg-neutral-800'
+                    }`}
+                >
+                  <Server size={12} />
+                  <span>Monolithic</span>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-semibold text-text-secondary mb-1">Product Name</label>
               <input
                 type="text"
-                value={selectedNode.data.config?.agentName || ''}
-                onChange={(e) => updateSelectedNodeConfig('agentName', e.target.value)}
-                className="w-full bg-bg-tertiary border border-border-primary rounded-lg px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-purple-500"
+                value={selectedNode.data.config?.productName || 'TrackFlows AI Engine'}
+                onChange={(e) => updateSelectedNodeConfig('productName', e.target.value)}
+                className="w-full bg-bg-tertiary border border-border-primary rounded-lg px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-purple-500 font-semibold"
               />
             </div>
 
@@ -378,11 +423,10 @@ export const NodeSettingsPanel: React.FC<NodeSettingsPanelProps> = ({
                 </button>
               </label>
               <textarea
-                value={selectedNode.data.config?.instructions || ''}
+                value={selectedNode.data.config?.instructions || 'Analyze incoming PRD payload and execute tool schema generate_multi_epic_breakdown to partition into domain Epics, User Stories, and Tasks.'}
                 onChange={(e) => updateSelectedNodeConfig('instructions', e.target.value)}
                 className="w-full bg-bg-tertiary border border-border-primary rounded-lg px-2.5 py-1.5 text-xs text-text-primary font-mono outline-none focus:border-purple-500"
                 rows={3}
-                placeholder="e.g. You are a sales assistant. Dynamic details: {{trigger.customer.company}}"
               />
               {activePickerField === 'instructions' &&
                 renderVariablePickerTree((expr) => {
@@ -390,6 +434,43 @@ export const NodeSettingsPanel: React.FC<NodeSettingsPanelProps> = ({
                   updateSelectedNodeConfig('instructions', current + expr);
                   setActivePickerField(null);
                 })}
+            </div>
+
+            {/* Tool Call Schema Inspector */}
+            <div className="border border-border-primary rounded-lg p-2 bg-bg-secondary/40 space-y-1.5">
+              <div className="flex items-center justify-between text-[10px] font-bold text-text-heading">
+                <span className="flex items-center gap-1 text-purple-600 dark:text-purple-400">
+                  <Code size={12} />
+                  <span>Tool Call Schema Definition</span>
+                </span>
+                <span className="font-mono text-[9px] px-1.5 py-0.5 bg-purple-500/10 text-purple-500 rounded">
+                  generate_multi_epic_breakdown
+                </span>
+              </div>
+              <textarea
+                rows={5}
+                readOnly
+                className="w-full bg-bg-tertiary border border-border-primary rounded p-1.5 text-[9.5px] font-mono text-text-secondary outline-none"
+                value={JSON.stringify({
+                  name: "generate_multi_epic_breakdown",
+                  description: "Generates Epics, User Stories & Tasks per domain service",
+                  parameters: {
+                    type: "object",
+                    properties: {
+                      productName: { type: "string" },
+                      architectureType: { type: "string", enum: ["MICROSERVICES", "MONOLITHIC"] },
+                      epics: {
+                        type: "array",
+                        items: {
+                          epicTitle: "string",
+                          serviceDomain: "string",
+                          stories: [{ title: "string", userRole: "string", tasks: [{ title: "string", priority: "string" }] }]
+                        }
+                      }
+                    }
+                  }
+                }, null, 2)}
+              />
             </div>
 
             {/* Model & Temp Slider */}
@@ -401,7 +482,7 @@ export const NodeSettingsPanel: React.FC<NodeSettingsPanelProps> = ({
                   onChange={(e) => updateSelectedNodeConfig('model', e.target.value)}
                   className="w-full bg-bg-tertiary border border-border-primary rounded-lg px-2 py-1 text-xs text-text-primary outline-none focus:border-purple-500"
                 >
-                  <option value="GPT-4o">GPT-4o</option>
+                  <option value="GPT-4o">GPT-4o (Standard)</option>
                   <option value="Claude 3.5 Sonnet">Claude 3.5 Sonnet</option>
                   <option value="Gemini 1.5 Pro">Gemini 1.5 Pro</option>
                 </select>
@@ -421,85 +502,17 @@ export const NodeSettingsPanel: React.FC<NodeSettingsPanelProps> = ({
               </div>
             </div>
 
-            {/* Agent Tools */}
-            <div>
-              <label className="block text-[10px] font-semibold text-text-secondary mb-1.5">Agent Tools</label>
-              <div className="space-y-1">
-                {['Database', 'Search', 'HTTP API', 'Calculator'].map((tool) => (
-                  <label key={tool} className="flex items-center gap-2 text-[11px] text-text-secondary cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={!!selectedNode.data.config?.tools?.[tool.toLowerCase()]}
-                      onChange={(e) => {
-                        const currentTools = selectedNode.data.config?.tools || {};
-                        updateSelectedNodeConfig('tools', {
-                          ...currentTools,
-                          [tool.toLowerCase()]: e.target.checked,
-                        });
-                      }}
-                      className="rounded text-purple-600 focus:ring-purple-500 w-3.5 h-3.5"
-                    />
-                    <span>{tool}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {/* Memory Type */}
-            <div>
-              <label className="block text-[10px] font-semibold text-text-secondary mb-1">Memory Mode</label>
-              <select
-                value={selectedNode.data.config?.memory || 'session'}
-                onChange={(e) => updateSelectedNodeConfig('memory', e.target.value)}
-                className="w-full bg-bg-tertiary border border-border-primary rounded-lg px-2 py-1 text-xs text-text-primary outline-none focus:border-purple-500"
-              >
-                <option value="session">Session Memory</option>
-                <option value="workflow">Workflow Memory</option>
-                <option value="vector">Vector Memory</option>
-              </select>
-            </div>
-
-            {/* Agent Guardrails */}
-            <div className="space-y-2 border-t border-border-primary/40 pt-3">
-              <label className="block text-[10px] font-semibold text-text-secondary">Guardrails & Safety</label>
-              <div className="grid grid-cols-2 gap-2 text-[10px] text-text-secondary">
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={!!selectedNode.data.config?.guardrails?.pii}
-                    onChange={(e) => {
-                      const currentGuard = selectedNode.data.config?.guardrails || {};
-                      updateSelectedNodeConfig('guardrails', { ...currentGuard, pii: e.target.checked });
-                    }}
-                    className="rounded text-purple-600 focus:ring-purple-500 w-3 h-3"
-                  />
-                  <span>PII Protection</span>
-                </label>
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={!!selectedNode.data.config?.guardrails?.injection}
-                    onChange={(e) => {
-                      const currentGuard = selectedNode.data.config?.guardrails || {};
-                      updateSelectedNodeConfig('guardrails', { ...currentGuard, injection: e.target.checked });
-                    }}
-                    className="rounded text-purple-600 focus:ring-purple-500 w-3 h-3"
-                  />
-                  <span>Injection Detect</span>
-                </label>
-              </div>
-            </div>
-
             {/* Live execution preview tester */}
             <div className="bg-[#f8f9fa] dark:bg-[#282a2d] border border-border-primary rounded-lg p-2.5 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold text-text-heading flex items-center gap-1">
                   <Terminal size={11} className="text-purple-500 animate-pulse" />
-                  <span>Live Agent Sandbox</span>
+                  <span>Live Multi-Agent Sandbox</span>
                 </span>
                 <button
+                  type="button"
                   onClick={() => setAiPreviewStep((s) => (s + 1) % aiSteps.length)}
-                  className="text-[9px] bg-purple-600 hover:bg-purple-700 text-white px-2 py-0.5 rounded cursor-pointer"
+                  className="text-[9px] bg-purple-600 hover:bg-purple-700 text-white px-2 py-0.5 rounded cursor-pointer font-bold"
                 >
                   Step Next
                 </button>
@@ -516,7 +529,6 @@ export const NodeSettingsPanel: React.FC<NodeSettingsPanelProps> = ({
             </div>
           </div>
         )}
-
         {/* HTTP Request Configuration */}
         {selectedNode.data.category === 'developer' && selectedNode.data.label.includes('HTTP') && (
           <div className="space-y-4 border-t border-border-primary/50 pt-4">
@@ -540,7 +552,7 @@ export const NodeSettingsPanel: React.FC<NodeSettingsPanelProps> = ({
                   <option value="DELETE">DELETE</option>
                 </select>
               </div>
-              
+
               <div className="w-2/3 relative">
                 <label className="block text-[10px] font-semibold text-text-secondary mb-1 flex items-center justify-between">
                   <span>URL</span>
@@ -587,12 +599,12 @@ export const NodeSettingsPanel: React.FC<NodeSettingsPanelProps> = ({
           </div>
         )}
 
-        {/* Human Approval Node */}
-        {selectedNode.data.label.includes('Human') && (
+        {/* Human Approval Node & Sprint Board Auto-Populator */}
+        {(selectedNode.data.label.includes('Human') || selectedNode.data.label.includes('Sprint Board')) && (
           <div className="space-y-4 border-t border-border-primary/50 pt-4">
             <h3 className="text-xs font-bold text-amber-500 dark:text-amber-400 flex items-center gap-1.5">
               <User size={13} />
-              <span>Human Approval Config</span>
+              <span>Approval & Sprint Board Task Generator</span>
             </h3>
 
             <div>
@@ -619,16 +631,192 @@ export const NodeSettingsPanel: React.FC<NodeSettingsPanelProps> = ({
             </div>
 
             <div>
-              <label className="block text-[10px] font-semibold text-text-secondary mb-1">Escalation Timeout (hours)</label>
+              <label className="block text-[10px] font-semibold text-text-secondary mb-1">Target Workspace Tag</label>
+              <select
+                value={selectedNode.data.config?.workspaceKey || 'Sprint-Planning'}
+                onChange={(e) => updateSelectedNodeConfig('workspaceKey', e.target.value)}
+                className="w-full bg-bg-tertiary border border-border-primary rounded-lg px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-purple-500 font-semibold"
+              >
+                <option value="Sprint-Planning">Sprint-Planning</option>
+                <option value="TrackFlows Core">TrackFlows Core</option>
+                <option value="AI Service">AI Service</option>
+              </select>
+            </div>
+
+            {/* Generated Multi-Epic Backlog Preview Tree */}
+            <div className="border border-amber-500/30 bg-amber-500/5 rounded-xl p-3 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                  <Layers size={13} />
+                  <span>Pending Multi-Epic Backlog</span>
+                </span>
+                <span className="text-[9.5px] font-semibold bg-amber-500/20 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full">
+                  Microservices Mode
+                </span>
+              </div>
+
+              <div className="space-y-2 text-[10.5px]">
+                {/* Epic 1 */}
+                <div className="bg-white dark:bg-[#1c1d20] border border-border-primary rounded-lg p-2">
+                  <div className="font-bold text-purple-600 dark:text-purple-400 flex items-center gap-1">
+                    <Boxes size={11} />
+                    <span>Auth & Identity Microservice</span>
+                  </div>
+                  <div className="text-[9.5px] text-text-secondary pl-3 mt-0.5 space-y-0.5">
+                    <div>• 2 User Stories (OAuth2 Integration, Member Invite APIs)</div>
+                    <div>• 4 Implementation Tasks (JWT Filter, DB Migration, etc.)</div>
+                  </div>
+                </div>
+
+                {/* Epic 2 */}
+                <div className="bg-white dark:bg-[#1c1d20] border border-border-primary rounded-lg p-2">
+                  <div className="font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                    <Boxes size={11} />
+                    <span>Payment Gateway & Billing Service</span>
+                  </div>
+                  <div className="text-[9.5px] text-text-secondary pl-3 mt-0.5 space-y-0.5">
+                    <div>• 1 User Story (Stripe Enterprise Subscription)</div>
+                    <div>• 2 Implementation Tasks (Webhook POST handler, Tier Middleware)</div>
+                  </div>
+                </div>
+
+                {/* Epic 3 */}
+                <div className="bg-white dark:bg-[#1c1d20] border border-border-primary rounded-lg p-2">
+                  <div className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                    <Boxes size={11} />
+                    <span>AI Workflow Execution Engine</span>
+                  </div>
+                  <div className="text-[9.5px] text-text-secondary pl-3 mt-0.5 space-y-0.5">
+                    <div>• 1 User Story (LangGraph State Graph Execution)</div>
+                    <div>• 2 Implementation Tasks (Tool Schema Parser, WebSocket Logger)</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ACTION BUTTON */}
+              <button
+                type="button"
+                onClick={async () => {
+                  const wsKey = selectedNode.data.config?.workspaceKey || 'Sprint-Planning';
+                  const pName = selectedNode.data.config?.productName || 'TrackFlows AI Engine';
+                  const prd = selectedNode.data.config?.instructions || selectedNode.data.description || `Product specification for ${pName}`;
+                  const arch = (selectedNode.data.config?.architectureType || 'MICROSERVICES') as any;
+                  const fw = selectedNode.data.config?.framework || 'CrewAI';
+
+                  await useBoardStore.getState().runBackendAIBreakdown(
+                    pName,
+                    prd,
+                    arch,
+                    wsKey,
+                    fw
+                  );
+
+                  // Set node status to success
+                  setNodes((nds) =>
+                    nds.map((n) => (n.id === selectedNode.id ? { ...n, data: { ...n.data, status: 'success' } } : n))
+                  );
+                }}
+                className="w-full py-2 bg-gradient-to-r from-amber-500 to-purple-600 hover:from-amber-600 hover:to-purple-700 text-white rounded-lg font-bold text-xs shadow-md cursor-pointer transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 mt-2"
+              >
+                <CheckCircle size={14} />
+                <span>Approve Workflow & Generate All Epics/Tasks</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Authentication & Security Configuration */}
+        {(selectedNode.data.label.includes('Auth') || selectedNode.data.label.includes('JWT') || selectedNode.data.label.includes('Session') || selectedNode.data.label.includes('RBAC') || selectedNode.data.label.includes('Validator')) && (
+          <div className="space-y-4 border-t border-border-primary/50 pt-4 animate-fade-in">
+            <h3 className="text-xs font-bold text-indigo-500 dark:text-indigo-400 flex items-center gap-1.5">
+              <Shield size={13} />
+              <span>Authentication & Security Settings</span>
+            </h3>
+
+            <div>
+              <label className="block text-[10px] font-semibold text-text-secondary mb-1">Auth Mechanism Provider</label>
+              <select
+                value={selectedNode.data.config?.authProvider || 'OAuth2 / JWT'}
+                onChange={(e) => updateSelectedNodeConfig('authProvider', e.target.value)}
+                className="w-full bg-bg-tertiary border border-border-primary rounded-lg px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-purple-500 font-medium"
+              >
+                <option value="OAuth2 / JWT">OAuth2 & JWT Bearer Token Guard</option>
+                <option value="Auth0">Auth0 Identity Connector</option>
+                <option value="Clerk">Clerk Auth Provider</option>
+                <option value="API Key Secret Vault">API Key & HMAC Secret Vault</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-semibold text-text-secondary mb-1">Required Permissions / Roles</label>
               <input
-                type="number"
-                value={selectedNode.data.config?.timeout || 24}
-                onChange={(e) => updateSelectedNodeConfig('timeout', parseInt(e.target.value))}
-                className="w-full bg-bg-tertiary border border-border-primary rounded-lg px-2.5 py-1 text-xs text-text-primary outline-none focus:border-purple-500"
+                type="text"
+                placeholder="e.g. read:workspaces, write:tickets, admin"
+                value={selectedNode.data.config?.requiredRoles || 'admin, developer'}
+                onChange={(e) => updateSelectedNodeConfig('requiredRoles', e.target.value)}
+                className="w-full bg-bg-tertiary border border-border-primary rounded-lg px-2.5 py-1 text-xs text-text-primary font-mono outline-none focus:border-purple-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-semibold text-text-secondary mb-1">Token Secret Environment Variable</label>
+              <input
+                type="text"
+                value={selectedNode.data.config?.secretEnv || 'JWT_SECRET_KEY'}
+                onChange={(e) => updateSelectedNodeConfig('secretEnv', e.target.value)}
+                className="w-full bg-bg-tertiary border border-border-primary rounded-lg px-2.5 py-1 text-xs font-mono text-purple-600 dark:text-purple-400 outline-none focus:border-purple-500"
               />
             </div>
           </div>
         )}
+
+        {/* Payment Gateway & Billing Configuration */}
+        {(selectedNode.data.label.includes('Stripe') || selectedNode.data.label.includes('Payment') || selectedNode.data.label.includes('PayPal') || selectedNode.data.label.includes('Razorpay') || selectedNode.data.label.includes('Invoice')) && (
+          <div className="space-y-4 border-t border-border-primary/50 pt-4 animate-fade-in">
+            <h3 className="text-xs font-bold text-emerald-500 dark:text-emerald-400 flex items-center gap-1.5">
+              <CreditCard size={13} />
+              <span>Payment Gateway & Billing Configuration</span>
+            </h3>
+
+            <div>
+              <label className="block text-[10px] font-semibold text-text-secondary mb-1">Gateway Provider</label>
+              <select
+                value={selectedNode.data.config?.paymentGateway || 'Stripe'}
+                onChange={(e) => updateSelectedNodeConfig('paymentGateway', e.target.value)}
+                className="w-full bg-bg-tertiary border border-border-primary rounded-lg px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-purple-500 font-medium"
+              >
+                <option value="Stripe">Stripe Checkout & Webhooks</option>
+                <option value="PayPal">PayPal Subscription API</option>
+                <option value="Razorpay">Razorpay Order Gateway</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-semibold text-text-secondary mb-1">Payment Action</label>
+              <select
+                value={selectedNode.data.config?.paymentAction || 'Checkout Session'}
+                onChange={(e) => updateSelectedNodeConfig('paymentAction', e.target.value)}
+                className="w-full bg-bg-tertiary border border-border-primary rounded-lg px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-purple-500"
+              >
+                <option value="Checkout Session">Create Hosted Checkout Session</option>
+                <option value="Webhook Event Listener">Listen for Payment Webhook Events</option>
+                <option value="Subscription Upgrade">Upgrade Customer Subscription Tier</option>
+                <option value="Invoice Receipt PDF">Generate Invoice Receipt PDF</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-semibold text-text-secondary mb-1">Stripe Secret Key Variable</label>
+              <input
+                type="text"
+                value={selectedNode.data.config?.apiKeyEnv || 'STRIPE_SECRET_KEY'}
+                onChange={(e) => updateSelectedNodeConfig('apiKeyEnv', e.target.value)}
+                className="w-full bg-bg-tertiary border border-border-primary rounded-lg px-2.5 py-1 text-xs font-mono text-emerald-600 dark:text-emerald-400 outline-none focus:border-purple-500"
+              />
+            </div>
+          </div>
+        )}
+
         {/* Fallback Config Panels for other library nodes */}
         {/* A. Cron / Schedule Triggers */}
         {(selectedNode.data.label.includes('Schedule') || selectedNode.data.label.includes('Cron')) && !selectedNode.data.label.includes('Webhook') && (
@@ -951,7 +1139,7 @@ export const NodeSettingsPanel: React.FC<NodeSettingsPanelProps> = ({
             >
               Test Step
             </button>
-            
+
             <button
               onClick={() => {
                 showToast('Config saved successfully');

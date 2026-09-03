@@ -264,6 +264,66 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, task, def
     }
   };
 
+  interface ParsedAttachment {
+    type: 'image' | 'file';
+    url: string;
+    name: string;
+  }
+
+  const parseAttachments = (html: string): ParsedAttachment[] => {
+    if (!html) return [];
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const list: ParsedAttachment[] = [];
+
+    // Parse image elements
+    const imgs = doc.querySelectorAll('img');
+    imgs.forEach(img => {
+      const src = img.getAttribute('src');
+      if (src) {
+        let filename = 'Image';
+        try {
+          const parts = src.split('/');
+          filename = parts[parts.length - 1] || 'image.png';
+        } catch (e) {}
+        list.push({ type: 'image', url: src, name: filename });
+      }
+    });
+
+    // Parse anchor links
+    const links = doc.querySelectorAll('a');
+    links.forEach(a => {
+      const href = a.getAttribute('href');
+      if (href) {
+        const text = a.textContent?.trim() || '';
+        const name = text.replace(/^📎\s*/, '') || href.split('/').pop() || 'Attachment';
+        list.push({ type: 'file', url: href, name });
+      }
+    });
+
+    return list;
+  };
+
+  const removeAttachment = (url: string) => {
+    if (editorRef.current) {
+      const html = editorRef.current.innerHTML;
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      
+      const imgs = doc.querySelectorAll(`img[src="${url}"]`);
+      imgs.forEach(img => img.remove());
+      
+      const links = doc.querySelectorAll(`a[href="${url}"]`);
+      links.forEach(a => a.remove());
+      
+      const newHtml = doc.body.innerHTML;
+      editorRef.current.innerHTML = newHtml;
+      setDescription(newHtml);
+    }
+  };
+
+  const attachments = parseAttachments(description);
+
   const comments = liveTask?.comments ?? [];
   const selectedTypeObj = ISSUE_TYPES.find(i => i.value === type) || ISSUE_TYPES[0];
 
@@ -403,6 +463,48 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, task, def
                 />
               </div>
             </div>
+
+            {/* Attachments Section */}
+            {attachments.length > 0 && (
+              <div className="space-y-1.5 pt-1">
+                <span className="text-text-secondary font-semibold block text-xs">Attachments ({attachments.length})</span>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {attachments.map((att, idx) => (
+                    <div 
+                      key={idx} 
+                      className="group relative flex items-center gap-2 px-3 py-2 bg-bg-primary hover:bg-bg-tertiary/20 border border-border-primary rounded transition-all min-w-0"
+                    >
+                      <div className="flex-shrink-0 text-text-secondary">
+                        {att.type === 'image' ? (
+                          <Image size={14} className="text-blue-500" />
+                        ) : (
+                          <Paperclip size={14} className="text-emerald-500" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <a 
+                          href={att.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="block text-[11px] font-medium text-text-primary hover:text-blue-600 truncate"
+                          title={att.name}
+                        >
+                          {att.name}
+                        </a>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeAttachment(att.url)}
+                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-rose-500/10 text-text-secondary hover:text-rose-600 rounded transition-all cursor-pointer flex-shrink-0"
+                        title="Remove attachment"
+                      >
+                        <Trash2 size={11} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Comments Section (Jira style bottom area) */}
             {task && (
@@ -682,7 +784,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, task, def
         </form>
 
         {/* Footer Actions (Atlassian Style) */}
-        <div className="px-6 py-4 bg-bg-secondary border-t border-border-primary/50 flex items-center justify-between">
+        <div className="px-6 py-3.5 bg-bg-secondary border-t border-border-primary/50 flex items-center justify-between">
           <div className="flex items-center">
             {/* Create Another Checkbox (Creation Mode only) */}
             {!task && (
@@ -693,7 +795,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, task, def
                   onChange={(e) => setCreateAnother(e.target.checked)}
                   className="rounded border-border-primary text-blue-600 focus:ring-blue-500/50 w-3.5 h-3.5"
                 />
-                <span className="text-[11px] font-medium">Create another</span>
+                <span className="text-[11.5px] font-medium">Create another</span>
               </label>
             )}
 
@@ -704,27 +806,27 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, task, def
                   <button
                     type="button"
                     onClick={() => setConfirmDelete(true)}
-                    className="flex items-center gap-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 rounded px-3 py-1.5 font-bold transition-all cursor-pointer"
+                    className="flex items-center gap-1.5 text-text-secondary hover:text-rose-600 hover:bg-rose-500/10 px-2.5 py-1.5 rounded font-medium transition-all cursor-pointer text-[11px]"
                   >
                     <Trash2 size={13} />
-                    Delete Issue
+                    <span>Delete</span>
                   </button>
                 ) : (
-                  <div className="flex items-center gap-2">
-                    <span className="flex items-center gap-1 text-rose-600 dark:text-rose-400 font-bold">
+                  <div className="flex items-center gap-2 text-[11px]">
+                    <span className="flex items-center gap-1 text-rose-600 dark:text-rose-400 font-semibold">
                       <AlertTriangle size={13} /> Delete?
                     </span>
                     <button
                       type="button"
                       onClick={handleDelete}
-                      className="bg-rose-600 hover:bg-rose-700 text-white rounded px-2.5 py-1 font-bold transition-colors cursor-pointer"
+                      className="bg-rose-600 hover:bg-rose-700 text-white rounded px-2.5 py-1 font-semibold transition-colors cursor-pointer"
                     >
                       Confirm
                     </button>
                     <button
                       type="button"
                       onClick={() => setConfirmDelete(false)}
-                      className="text-text-secondary hover:text-text-heading font-medium cursor-pointer"
+                      className="text-text-secondary hover:text-text-heading px-2 py-1 rounded hover:bg-bg-tertiary transition-colors font-medium cursor-pointer"
                     >
                       Cancel
                     </button>
@@ -734,18 +836,18 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, task, def
             )}
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="bg-transparent hover:bg-bg-tertiary text-text-secondary hover:text-text-heading rounded px-4 py-2 font-bold transition-colors cursor-pointer"
+              className="bg-transparent hover:bg-bg-tertiary text-text-secondary hover:text-text-heading rounded px-3 py-1.5 font-medium transition-colors cursor-pointer text-[11px]"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={handleSubmit}
-              className="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded px-4 py-2 font-bold shadow transition-colors cursor-pointer"
+              className="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded px-3.5 py-1.5 font-semibold shadow-sm transition-colors cursor-pointer text-[11px]"
             >
               {task ? 'Save' : 'Create'}
             </button>

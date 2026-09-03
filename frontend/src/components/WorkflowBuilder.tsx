@@ -73,12 +73,16 @@ const NODE_LIBRARY = [
     items: [
       { label: 'LLM Prompt', icon: 'MessageSquare', category: 'ai', description: 'Standard LLM prompt completion block.' },
       { label: 'AI Agent Assessor', icon: 'Sparkles', category: 'ai', description: 'Autonomous agent that selects tools to fulfill prompts.' },
+      { label: 'AI Product Microservice Architect', icon: 'Cpu', category: 'ai', description: 'Decomposes product PRD into Microservices & Multi-Epic tasks via tool schema.' },
+      { label: 'LangGraph Orchestrator', icon: 'GitBranch', category: 'ai', description: 'Stateful Multi-Agent DAG workflow executor using LangGraph state graph.' },
+      { label: 'CrewAI Agent Team', icon: 'Users', category: 'ai', description: 'Role-delegated multi-agent swarm (PM + Architect + Engineer).' },
+      { label: 'AutoGen Conversational Team', icon: 'MessageCircle', category: 'ai', description: 'Conversational agent team for iterative product decomposition.' },
       { label: 'RAG Search', icon: 'Search', category: 'ai', description: 'Search vector databases to fetch context.' },
       { label: 'Embeddings', icon: 'Hash', category: 'ai', description: 'Convert text blocks into vector embeddings arrays.' },
       { label: 'AI Lead Classification', icon: 'Cpu', category: 'ai', description: 'Standard LLM categorization prompt block.' },
       { label: 'Summarizer', icon: 'FileText', category: 'ai', description: 'Summarize long text blocks or chat logs.' },
       { label: 'Content Generator', icon: 'PenTool', category: 'ai', description: 'Generate custom drafts or copywriting.' },
-      { label: 'Human Review Approval', icon: 'UserCheck', category: 'logic', description: 'Pause execution for manual manager sign-off.' }
+      { label: 'Human Review Approval', icon: 'UserCheck', category: 'logic', description: 'Pause execution for manual sign-off and Sprint Board task generation.' }
     ]
   },
   {
@@ -86,6 +90,7 @@ const NODE_LIBRARY = [
     color: 'text-emerald-500',
     icon: 'Link2',
     items: [
+      { label: 'Sprint Board Auto-Populator', icon: 'Layers', category: 'integration', description: 'Automatically inserts Epics, Stories, and Tasks directly into Sprint Board.' },
       { label: 'OpenAI Connection', icon: 'Sparkles', category: 'integration', description: 'Connect directly to GPT models API.' },
       { label: 'Anthropic Connection', icon: 'Sparkles', category: 'integration', description: 'Connect directly to Claude models API.' },
       { label: 'Slack Notification', icon: 'Slack', category: 'integration', description: 'Ping specific workspace channels with custom alerts.' },
@@ -99,6 +104,30 @@ const NODE_LIBRARY = [
       { label: 'MongoDB Connection', icon: 'Database', category: 'developer', description: 'Insert document logs to Mongo database.' },
       { label: 'AWS Lambda Trigger', icon: 'Cloud', category: 'integration', description: 'Invoke serverless lambda functions.' },
       { label: 'GitHub Workflow Trigger', icon: 'Github', category: 'integration', description: 'Trigger repository Actions/Workflows runs.' }
+    ]
+  },
+  {
+    category: 'Authentication',
+    color: 'text-indigo-500',
+    icon: 'Shield',
+    items: [
+      { label: 'OAuth2 / JWT Auth Guard', icon: 'ShieldCheck', category: 'logic', description: 'Validate user authentication tokens, OAuth2 access claims, and JWT bearer headers.' },
+      { label: 'Auth0 / Clerk Connector', icon: 'Key', category: 'integration', description: 'Integrate external identity provider session verification.' },
+      { label: 'User Session Authenticator', icon: 'UserCheck', category: 'logic', description: 'Enforce authenticated user context before executing downstream actions.' },
+      { label: 'API Key & Secret Validator', icon: 'Lock', category: 'logic', description: 'Validate bearer tokens and signature headers against secret vault.' },
+      { label: 'Role-Based Access Control (RBAC)', icon: 'Shield', category: 'logic', description: 'Check permission roles (Admin, Developer, Viewer) before workflow execution.' }
+    ]
+  },
+  {
+    category: 'Payments & Billing',
+    color: 'text-emerald-500',
+    icon: 'CreditCard',
+    items: [
+      { label: 'Stripe Payment Gateway', icon: 'CreditCard', category: 'integration', description: 'Process payments, subscription checkouts, and handle Stripe webhook events.' },
+      { label: 'PayPal Subscription Checkout', icon: 'DollarSign', category: 'integration', description: 'Process recurring billing and invoice checkouts via PayPal API.' },
+      { label: 'Razorpay Payment Node', icon: 'CreditCard', category: 'integration', description: 'Process payments and subscriptions using Razorpay gateway.' },
+      { label: 'Invoice & Billing Generator', icon: 'FileText', category: 'integration', description: 'Generate custom invoices and PDF payment receipts.' },
+      { label: 'Webhook Payment Listener', icon: 'Zap', category: 'trigger', description: 'Trigger workflow run on incoming payment success or invoice events.' }
     ]
   },
   {
@@ -142,6 +171,23 @@ const initialEdges: Edge[] = [
   { id: 'edge-5b-6', source: 'node-5b', target: 'node-6', sourceHandle: 'source-right', targetHandle: 'target-left', animated: true, style: { stroke: '#6366f1', strokeWidth: 2 } },
   { id: 'edge-6-7', source: 'node-6', target: 'node-7', sourceHandle: 'source-right', targetHandle: 'target-left', animated: true, style: { stroke: '#10b981', strokeWidth: 2 } },
   { id: 'edge-7-8', source: 'node-7', target: 'node-8', sourceHandle: 'source-right', targetHandle: 'target-left', animated: true, style: { stroke: '#10b981', strokeWidth: 2 } }
+];
+
+export const productBreakdownNodes: Node<CustomNodeData>[] = [
+  { id: 'node-p1', type: 'custom', position: { x: 80, y: 165 }, data: { label: 'Webhook PRD Trigger', icon: 'Zap', status: 'success', category: 'trigger', description: 'Ingest product requirements document or feature payload.' } },
+  { id: 'node-p2', type: 'custom', position: { x: 420, y: 165 }, data: { label: 'AI Product Microservice Architect', icon: 'Cpu', status: 'success', category: 'ai', description: 'Decomposes product PRD into Microservices & Multi-Epic tasks via tool schema.', config: { framework: 'CrewAI', architectureType: 'MICROSERVICES', productName: 'TrackFlows AI Engine' } } },
+  { id: 'node-p3', type: 'custom', position: { x: 760, y: 165 }, data: { label: 'LangGraph Orchestrator', icon: 'GitBranch', status: 'success', category: 'ai', description: 'Stateful Multi-Agent DAG workflow executor using LangGraph state graph.', config: { agentName: 'Multi-Epic Task Synthesizer', model: 'GPT-4o' } } },
+  { id: 'node-p4', type: 'custom', position: { x: 1100, y: 165 }, data: { label: 'Human Review Approval', icon: 'UserCheck', status: 'idle', category: 'logic', description: 'Pause execution for manual manager sign-off and Sprint Board task generation.', config: { approvalMessage: 'Approve Microservices Multi-Epic Breakdown (Auth + Payment + Notification Services)', assignee: 'Sarah Jenkins (Lead Architect)', autoCreateTasks: true } } },
+  { id: 'node-p5', type: 'custom', position: { x: 1440, y: 165 }, data: { label: 'Sprint Board Auto-Populator', icon: 'Layers', status: 'idle', category: 'integration', description: 'Automatically inserts Epics, Stories, and Tasks directly into Sprint Board.', config: { workspaceKey: 'Sprint-Planning' } } },
+  { id: 'node-p6', type: 'custom', position: { x: 1780, y: 165 }, data: { label: 'Success Finish', icon: 'CheckCircle', status: 'idle', category: 'logic', description: 'Completion terminus endpoint.' } }
+];
+
+export const productBreakdownEdges: Edge[] = [
+  { id: 'ep-1-2', source: 'node-p1', target: 'node-p2', sourceHandle: 'source-right', targetHandle: 'target-left', animated: true, style: { stroke: '#10b981', strokeWidth: 2 } },
+  { id: 'ep-2-3', source: 'node-p2', target: 'node-p3', sourceHandle: 'source-right', targetHandle: 'target-left', animated: true, style: { stroke: '#10b981', strokeWidth: 2 } },
+  { id: 'ep-3-4', source: 'node-p3', target: 'node-p4', sourceHandle: 'source-right', targetHandle: 'target-left', animated: true, style: { stroke: '#a855f7', strokeWidth: 2 } },
+  { id: 'ep-4-5', source: 'node-p4', target: 'node-p5', sourceHandle: 'source-right', targetHandle: 'target-left', animated: true, style: { stroke: '#10b981', strokeWidth: 2 } },
+  { id: 'ep-5-6', source: 'node-p5', target: 'node-p6', sourceHandle: 'source-right', targetHandle: 'target-left', animated: true, style: { stroke: '#10b981', strokeWidth: 2 } }
 ];
 
 interface WorkflowBuilderProps {
@@ -504,6 +550,29 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ onBack }) => {
             >
               {status}
             </button>
+
+            {/* Preset Template Switcher */}
+            <select
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === 'microservice') {
+                  setNodes(productBreakdownNodes);
+                  setEdges(productBreakdownEdges);
+                  setWorkflowName('AI Microservice & Multi-Epic Task Breakdown Workflow');
+                  showToast('Loaded AI Microservice Multi-Epic Task Breakdown Workflow template');
+                } else if (val === 'lead') {
+                  setNodes(initialNodes);
+                  setEdges(initialEdges);
+                  setWorkflowName('Google Stitch Lead Qualifying Workflow');
+                  showToast('Loaded Lead Qualifying Workflow template');
+                }
+              }}
+              defaultValue="microservice"
+              className="bg-bg-tertiary border border-purple-500/40 rounded-lg px-2 py-0.5 text-[11px] font-semibold text-purple-600 dark:text-purple-400 outline-none cursor-pointer hover:border-purple-500"
+            >
+              <option value="microservice">✨ AI Microservice Multi-Epic Template</option>
+              <option value="lead">⚡ Lead Qualification Workflow Template</option>
+            </select>
           </div>
         </div>
 

@@ -9,7 +9,9 @@ import {
   ChevronRight,
   ChevronDown,
   Search,
-  PanelLeftClose
+  PanelLeftClose,
+  Shield,
+  CreditCard
 } from 'lucide-react';
 
 export interface LibraryItem {
@@ -96,6 +98,10 @@ export const NodeLibrarySidebar: React.FC<NodeLibrarySidebarProps> = ({
                       <Layers size={12} />
                     ) : category.category === 'AI' ? (
                       <Sparkles size={12} />
+                    ) : category.category === 'Authentication' ? (
+                      <Shield size={12} />
+                    ) : category.category === 'Payments & Billing' ? (
+                      <CreditCard size={12} />
                     ) : category.category === 'Integrations' ? (
                       <Link2 size={12} />
                     ) : (

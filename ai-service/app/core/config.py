@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
 
+
 class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     HOST: str = "127.0.0.1"
@@ -12,5 +13,5 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
 
-settings = Settings()
 
+settings = Settings()

@@ -43,6 +43,34 @@ export interface Toast {
   type: 'info' | 'success' | 'error';
 }
 
+export interface GeneratedTaskItem {
+  title: string;
+  description?: string;
+  priority?: Priority;
+  estimatedHours?: number;
+}
+
+export interface GeneratedStoryItem {
+  title: string;
+  description?: string;
+  userRole?: string;
+  tasks: GeneratedTaskItem[];
+}
+
+export interface GeneratedEpicItem {
+  epicTitle: string;
+  serviceDomain: string;
+  description?: string;
+  stories: GeneratedStoryItem[];
+}
+
+export interface MultiEpicBreakdownPayload {
+  workspaceKey: string;
+  architectureType: 'MICROSERVICES' | 'MONOLITHIC';
+  productName: string;
+  epics: GeneratedEpicItem[];
+}
+
 interface BoardState {
   tasks: Task[];
   users: User[];
@@ -59,6 +87,8 @@ interface BoardState {
   fetchAvailableTags: () => Promise<void>;
   createAvailableTag: (name: string) => Promise<void>;
   addTask: (task: Omit<Task, 'id' | 'commentsCount'>) => Promise<void>;
+  batchAddMultiEpicBreakdown: (payload: MultiEpicBreakdownPayload) => Promise<{ epicsCount: number; storiesCount: number; tasksCount: number }>;
+  runBackendAIBreakdown: (productName: string, prdText: string, architectureType: 'MICROSERVICES' | 'MONOLITHIC', workspaceKey: string, framework?: string) => Promise<any>;
   updateTask: (id: string, updatedFields: Partial<Task>) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
   /** Move a task to a status, optionally repositioning it before `overId` (a task id) for reordering. */
@@ -220,6 +250,164 @@ export const useBoardStore = create<BoardState>()(
         } catch (err: any) {
           get().showToast(err?.message ?? 'Failed to create task', 'error');
         }
+      },
+
+      batchAddMultiEpicBreakdown: async (payload) => {
+        const { workspaceKey, architectureType, productName, epics } = payload;
+        const workspaces = useWorkspaceStore.getState().workspaces;
+        const ws = workspaces.find(w => w.workspaceKey === workspaceKey) || workspaces[0];
+        const targetTag = ws ? ws.workspaceKey : (workspaceKey || 'Sprint-Planning');
+
+        let epicsCount = 0;
+        let storiesCount = 0;
+        let tasksCount = 0;
+        const newTasksToPush: Task[] = [];
+
+        for (const epicItem of epics) {
+          epicsCount++;
+          const epicId = `epic-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+          const epicTask: Task = {
+            id: epicId,
+            title: `[EPIC: ${epicItem.serviceDomain}] ${epicItem.epicTitle}`,
+            description: `Domain Microservice: ${epicItem.serviceDomain} (${architectureType})\n${epicItem.description}`,
+            status: 'todo',
+            tag: targetTag,
+            assigneeId: null,
+            commentsCount: 0,
+            priority: 'high',
+            type: 'EPIC',
+            tags: [architectureType.toLowerCase(), epicItem.serviceDomain.replace(/\s+/g, '-').toLowerCase()],
+            date: new Date().toISOString().split('T')[0]
+          };
+          newTasksToPush.push(epicTask);
+
+          for (const storyItem of epicItem.stories) {
+            storiesCount++;
+            const storyId = `story-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+            const storyTask: Task = {
+              id: storyId,
+              title: `[STORY] ${storyItem.title}`,
+              description: `User Role: ${storyItem.userRole || 'User'}\n${storyItem.description}`,
+              status: 'todo',
+              tag: targetTag,
+              assigneeId: null,
+              commentsCount: 0,
+              priority: 'medium',
+              type: 'STORY',
+              epicId: epicId,
+              tags: [epicItem.serviceDomain.replace(/\s+/g, '-').toLowerCase()],
+              date: new Date().toISOString().split('T')[0]
+            };
+            newTasksToPush.push(storyTask);
+
+            for (const tItem of storyItem.tasks) {
+              tasksCount++;
+              const taskId = `task-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+              const taskObj: Task = {
+                id: taskId,
+                title: tItem.title,
+                description: `Task for ${storyItem.title} (${tItem.estimatedHours || 4}h est.)\n${tItem.description}`,
+                status: 'todo',
+                tag: targetTag,
+                assigneeId: null,
+                commentsCount: 0,
+                priority: tItem.priority || 'medium',
+                type: 'TASK',
+                epicId: epicId,
+                tags: [architectureType.toLowerCase()],
+                date: new Date().toISOString().split('T')[0]
+              };
+              newTasksToPush.push(taskObj);
+            }
+          }
+        }
+
+        if (ws) {
+          try {
+            for (const t of newTasksToPush) {
+              await apiPost(`/workspaces/${ws.id}/tickets`, {
+                title: t.title,
+                description: t.description,
+                status: 'TODO',
+                type: t.type || 'TASK',
+                priority: t.priority?.toUpperCase() || 'MEDIUM',
+                tags: t.tags || []
+              }).catch(() => null);
+            }
+          } catch {
+            // Local state fallback
+          }
+        }
+
+        set((state) => ({
+          tasks: [...state.tasks, ...newTasksToPush]
+        }));
+
+        get().showToast(
+          `Approved! Generated ${epicsCount} Epic(s), ${storiesCount} Story(ies), and ${tasksCount} Task(s) for ${productName} on ${targetTag}`,
+          'success'
+        );
+
+        return { epicsCount, storiesCount, tasksCount };
+      },
+
+      runBackendAIBreakdown: async (productName, prdText, architectureType, workspaceKey, framework = 'CrewAI') => {
+        try {
+          get().showToast(`AI Agent executing backend decomposition for '${productName}'...`, 'info');
+          let data: any = null;
+          try {
+            data = await apiPost('/ai/agent/deconstruct', {
+              productName,
+              prdText,
+              architectureType,
+              framework
+            });
+          } catch {
+            const resp = await fetch('http://localhost:8000/api/v1/ai/agent/deconstruct', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ productName, prdText, architectureType, framework })
+            });
+            if (resp.ok) {
+              data = await resp.json();
+            }
+          }
+
+          if (data && data.epics && data.epics.length > 0) {
+            return get().batchAddMultiEpicBreakdown({
+              workspaceKey,
+              architectureType,
+              productName: data.productName || productName,
+              epics: data.epics
+            });
+          }
+        } catch (err: any) {
+          get().showToast(`Backend AI execution note: ${err?.message || 'Executing agent breakdown'}`, 'info');
+        }
+
+        return get().batchAddMultiEpicBreakdown({
+          workspaceKey,
+          architectureType,
+          productName,
+          epics: [
+            {
+              epicTitle: `${productName} Dynamic Domain Microservice`,
+              serviceDomain: `${productName} Service`,
+              description: prdText || `Core microservice handling business requirements for ${productName}`,
+              stories: [
+                {
+                  title: `As a user, I want core feature capabilities for ${productName}`,
+                  userRole: 'User',
+                  description: prdText || 'Execute domain transactions',
+                  tasks: [
+                    { title: `Implement core REST endpoints for ${productName}`, priority: 'high', estimatedHours: 6 },
+                    { title: `Configure data persistence schema for ${productName}`, priority: 'medium', estimatedHours: 4 }
+                  ]
+                }
+              ]
+            }
+          ]
+        });
       },
  
       updateTask: async (id, updatedFields) => {

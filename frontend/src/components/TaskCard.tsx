@@ -11,7 +11,7 @@ interface TaskCardProps {
   isOverlay?: boolean;
 }
 
-const PRIORITY_META: Record<Priority, { label: string; dot: string; text: string }> = {
+export const PRIORITY_META: Record<Priority, { label: string; dot: string; text: string }> = {
   high: { label: 'High priority', dot: 'bg-rose-500', text: 'text-rose-600 dark:text-rose-400' },
   medium: { label: 'Medium priority', dot: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400' },
   low: { label: 'Low priority', dot: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-400' },
